@@ -1,0 +1,23 @@
+schema: spec-driven
+
+context: |
+  Reusable AGS (Astal/GNIM, GJS) platform for a Linux desktop bar and its apps.
+  Owns the ports - IconProvider, EventSource/EventHub, LayoutProvider, SurfaceSpec,
+  Notifier, Preferences, BarContext - plus the shared adapters and the event-contract
+  client. Depends on `contracts`. Apps depend on the platform; the platform carries no
+  app-specific policy and no dotfiles paths. Design of record:
+  docs/101-ags-platform-architecture.md in dotfiles-v3. Repo contract in AGENTS.md
+  applies to all artifacts.
+
+rules:
+  proposal:
+    - "Every claim carries Evidence (file path + lines, commit SHA, URL + quote, or prototype command + observed output) and a one-command Verify step; mark Evidence MISSING rather than stating unproven claims as fact."
+    - "Always state what is out of scope."
+  specs:
+    - "Each requirement states its acceptance check (command to run + expected result)."
+    - "Cite the source of each requirement (prior-art path, user statement, or prototype output)."
+  design:
+    - "Include a verification plan - what prototype or test validates each key decision, with exact commands."
+    - "No component without an evidence-backed reason to exist."
+  tasks:
+    - "Each task ends with an observable check (command + expected output); break tasks into chunks of max 2 hours."
