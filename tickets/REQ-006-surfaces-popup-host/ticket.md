@@ -2,7 +2,7 @@
 id: REQ-006
 title: "Surfaces + PopupHost"
 kind: requirement
-status: proposed
+status: done
 lane: 2
 links:
   openspec: surfaces-popup-host
@@ -17,10 +17,10 @@ branch: none
 
 Formalise `SurfaceSpec`/`SurfaceRegistry` (bodies are **factories**, mounted only while visible) and ship `PopupHost` (window + click-catcher + anchor margin + keymode), absorbing **all five** current popups — AudioPopup, WifiPopup, BatteryPopup, **BluetoothPopup**, SettingsPanel — and deleting the duplicated chrome.
 
-Source: spine **AD-10**; doc 101 §13.5; sweep evidence (5 popups, not 4).
+Source: spine **AD-10**; doc 101 §13.5; sweep evidence (5 popups, not 4). Execution: dotfiles-v3 change `surfaces-popup-host` (merged).
 
 ## Acceptance
 
-- [ ] `SurfaceSpec.body` is a factory; at most one overlay is live (test).
-- [ ] The five popups use `PopupHost`; the duplicated catcher/margin/keymode code is gone (grep).
-- [ ] `WifiContent`/`BluetoothContent` still mount in both the popup and the settings panel.
+- [x] `SurfaceSpec.body` is a factory; at most one overlay is live (`surface-mount.test.ts`, 3 tests). ✅
+- [x] The five popups use `PopupHost`; the duplicated catcher/margin/keymode chrome is gone (grep `settings-catcher-fill` → 0 in each). ✅
+- [x] `WifiContent`/`BluetoothContent` still mount in both the popup and the settings panel. ✅
