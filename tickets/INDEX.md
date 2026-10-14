@@ -6,9 +6,9 @@
 
 ## Active epics
 
-- [EPIC-001-extract-and-publish-platform/ticket.md](./EPIC-001-extract-and-publish-platform/ticket.md) — Extract and publish the AGS platform | `proposed` | links: none | 0/10 children done
+- [EPIC-001-extract-and-publish-platform/ticket.md](./EPIC-001-extract-and-publish-platform/ticket.md) — Extract and publish the AGS platform | `in-progress` | links: none | 1/10 children done
   - done-when: ags-platform carries the platform ports + shared adapters + the one event client, extracted in-place in dotfiles-v3 with all gates green, then published with CI; apps depend only on it.
-  - [REQ-001-harden-extraction-gates/ticket.md](./REQ-001-harden-extraction-gates/ticket.md) — Harden the typecheck gates before extraction | `proposed` | openspec: harden-extraction-gates
+  - [REQ-001-harden-extraction-gates/ticket.md](./REQ-001-harden-extraction-gates/ticket.md) — Harden the typecheck gates before extraction | `done` | openspec: harden-extraction-gates
   - [REQ-002-kit-shell-four-shapes/ticket.md](./REQ-002-kit-shell-four-shapes/ticket.md) — Kit completeness + Shell + four widget shapes | `proposed` | openspec: kit-shell-four-shapes
   - [REQ-003-reactive-domain-read-models/ticket.md](./REQ-003-reactive-domain-read-models/ticket.md) — Reactive domain read models | `proposed` | openspec: reactive-domain-read-models
   - [REQ-004-uniform-icon-contract/ticket.md](./REQ-004-uniform-icon-contract/ticket.md) — Uniform icon contract + single manifest owner | `proposed` | openspec: uniform-icon-contract

@@ -2,7 +2,7 @@
 id: EPIC-001
 title: "Extract and publish the AGS platform"
 kind: epic
-status: proposed
+status: in-progress
 lane: bmad-advisory
 links:
   openspec: none
