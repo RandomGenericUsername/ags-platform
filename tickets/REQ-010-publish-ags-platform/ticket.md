@@ -2,7 +2,7 @@
 id: REQ-010
 title: "Publish ags-platform + CI"
 kind: requirement
-status: proposed
+status: done
 lane: 2
 links:
   openspec: publish-ags-platform
@@ -17,10 +17,10 @@ branch: none
 
 Publish the proven extracted package to this repo with a defined **package boundary** (entry point / export shape) and CI. The package must be consumable by AGS's embedded esbuild via a bare specifier; decide how tests import it (Node rejects `.ts` under `node_modules`).
 
-Source: spine **AD-17**, **AD-23**; Open Question "package boundary + Node type-stripping"; handoff iteration 3.
+Source: spine **AD-17**, **AD-23**; Open Question "package boundary + Node type-stripping"; handoff iteration 3. Execution: ags-platform change `publish-ags-platform`.
 
 ## Acceptance
 
-- [ ] The package has a committed entry point/export shape; `ags run` resolves it by bare specifier.
-- [ ] CI runs typecheck + tests on the platform.
-- [ ] The test-import shape is decided and documented (resolves the open question).
+- [x] Committed entry point/export map (`package.json` exports `.`/`./ports/*`/`./adapters/*`); AGS's esbuild resolves it by bare specifier (`ags bundle` exit 0). ✅
+- [x] CI runs tests + typecheck (`.github/workflows/ci.yml`: `pure` on ubuntu-latest, `desktop-typecheck` self-hosted). ✅
+- [x] Test-import decided: relative `.ts` + `node --test` (Node rejects `.ts` under `node_modules`); documented. ✅
