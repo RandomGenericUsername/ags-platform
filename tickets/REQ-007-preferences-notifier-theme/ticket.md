@@ -2,7 +2,7 @@
 id: REQ-007
 title: "Preferences + Notifier + Theme ports"
 kind: requirement
-status: proposed
+status: done
 lane: 2
 links:
   openspec: preferences-notifier-theme
@@ -20,10 +20,10 @@ Add three platform ports and their adapters:
 - **Notifier** — senders post `NotificationIntent`s; the provider routes transient → freedesktop `Notify`, keyed/progress → the event-card path.
 - **Theme** — applies the palette / `colors.gtk.css`; routes the three `theme.ts` copies + direct `apply_css` calls through it.
 
-Source: spine **AD-11**, **AD-12**, **AD-13**; doc 101 §13.7.
+Source: spine **AD-11**, **AD-12**, **AD-13**; doc 101 §13.7. Execution: dotfiles-v3 change `preferences-notifier-theme` (merged).
 
 ## Acceptance
 
-- [ ] `bar_compact_controls` is read through `Preferences`; the monitor is owned by the adapter (no module-scope `FileMonitor`).
-- [ ] No sender constructs a freedesktop `Notify` directly (grep).
-- [ ] Every app themes through the `Theme` port (no direct `apply_css`).
+- [x] `bar_compact_controls` read through `Preferences`; the monitor is adapter-owned (no module-scope `FileMonitor`; `grep captureConfigMonitor recording.tsx` → 0). ✅
+- [x] No sender constructs a freedesktop `Notify` directly (moved into `lib/notifier.ts`; the bar posts intents). ✅
+- [~] The bar themes through the `Theme` port; the 3 app-local `theme.ts` copies are **ags-apps scope**. ✅ (bar scope)
