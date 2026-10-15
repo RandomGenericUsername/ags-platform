@@ -1,0 +1,40 @@
+{
+  "//": [
+    "Typecheck config for the PURE-MODULE unit tests. HAND-WRITTEN AND COMMITTED.",
+    "",
+    "RUNS ON A STOCK RUNNER (AD-23). It deliberately does NOT widen to `gi://*`",
+    "or `ags/*`: nothing reachable from here may import GTK, which is what keeps",
+    "the suite runnable with no AGS and no GTK4 installed. The desktop-stack",
+    "typecheck is the separate tsconfig.platform.json.",
+    "",
+    "WHY THE EXPLICIT `.ts` SUFFIX (resolves the spine Open Question). Node runs",
+    "these files natively via its built-in TypeScript type-stripping, and Node's",
+    "ESM resolver does NOT do extensionless lookup, so `from \"../ports/event-client\"`",
+    "would fail at RUNTIME. The suffix is load-bearing. `allowImportingTsExtensions`",
+    "is what lets tsc agree with Node.",
+    "",
+    "WHY RELATIVE, NOT THE `ags-platform` BARE SPECIFIER. Node rejects `.ts` under",
+    "`node_modules` (`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`), so the test",
+    "runner cannot import the package by name through a `node_modules` shortcut.",
+    "Relative imports exercise the same source files with no build step and no",
+    "desktop stack; AGS's embedded esbuild (not Node) resolves the bare specifier",
+    "for real apps.",
+    "",
+    "`types: [\"node\"]` is a DECLARED dependency for `node:test`/`node:assert`.",
+    "`make typecheck-tests` installs @types/node at the repo root (npm install",
+    "--no-save, gitignored); tsc's typeRoots walk from tests/ finds",
+    "node_modules/@types/node one level up."
+  ],
+  "compilerOptions": {
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "target": "ES2020",
+    "strict": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "../ports/**/*.ts"]
+}

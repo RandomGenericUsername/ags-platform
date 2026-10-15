@@ -18,6 +18,13 @@ build/
 .idea/
 .vscode/*
 
+# AGS-generated type declarations (`ags types -d . -u`) — machine-specific,
+# regenerate with `ags types -d . -u`. `tsconfig.json` is owned by that command;
+# the committed configs are tsconfig.platform.json + tests/tsconfig.tests.json.
+/@girs/
+/env.d.ts
+/tsconfig.json
+
 # openspec local
 openspec/worksets/
 
