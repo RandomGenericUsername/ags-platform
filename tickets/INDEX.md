@@ -6,7 +6,7 @@
 
 ## Active epics
 
-- [EPIC-001-extract-and-publish-platform/ticket.md](./EPIC-001-extract-and-publish-platform/ticket.md) — Extract and publish the AGS platform | `in-progress` | links: none | 8/10 children done
+- [EPIC-001-extract-and-publish-platform/ticket.md](./EPIC-001-extract-and-publish-platform/ticket.md) — Extract and publish the AGS platform | `in-progress` | links: none | 9/10 children done
   - done-when: ags-platform carries the platform ports + shared adapters + the one event client, extracted in-place in dotfiles-v3 with all gates green, then published with CI; apps depend only on it.
   - [REQ-001-harden-extraction-gates/ticket.md](./REQ-001-harden-extraction-gates/ticket.md) — Harden the typecheck gates before extraction | `done` | openspec: harden-extraction-gates
   - [REQ-002-kit-shell-four-shapes/ticket.md](./REQ-002-kit-shell-four-shapes/ticket.md) — Kit completeness + Shell + four widget shapes | `done` | openspec: kit-shell-four-shapes
@@ -16,7 +16,7 @@
   - [REQ-006-surfaces-popup-host/ticket.md](./REQ-006-surfaces-popup-host/ticket.md) — Surfaces + PopupHost | `done` | openspec: surfaces-popup-host
   - [REQ-007-preferences-notifier-theme/ticket.md](./REQ-007-preferences-notifier-theme/ticket.md) — Preferences + Notifier + Theme ports | `done` | openspec: preferences-notifier-theme
   - [REQ-008-migrate-widgets-to-shapes/ticket.md](./REQ-008-migrate-widgets-to-shapes/ticket.md) — Migrate the bar widgets onto the shapes | `done` | openspec: migrate-widgets-to-shapes
-  - [REQ-009-extract-platform-in-place/ticket.md](./REQ-009-extract-platform-in-place/ticket.md) — Extract the platform in-place in dotfiles-v3 | `proposed` | openspec: extract-platform-in-place
+  - [REQ-009-extract-platform-in-place/ticket.md](./REQ-009-extract-platform-in-place/ticket.md) — Extract the platform in-place in dotfiles-v3 | `done` | openspec: extract-platform-in-place
   - [REQ-010-publish-ags-platform/ticket.md](./REQ-010-publish-ags-platform/ticket.md) — Publish ags-platform + CI | `proposed` | openspec: publish-ags-platform
 
 ## Requirements
