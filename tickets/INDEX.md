@@ -21,7 +21,7 @@
 
 ## Requirements
 
-(none)
+- [REQ-011-overlay-lifecycle/ticket.md](./REQ-011-overlay-lifecycle/ticket.md) — Overlay lifecycle primitive (present-first, defer-heavy, skip-when-unchanged) | `in-progress` | links: none
 
 ## Bugs
 

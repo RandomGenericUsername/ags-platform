@@ -61,6 +61,13 @@ export type { Preferences, PreferencesSource } from "./ports/preferences";
 export { createNotifier, isCardIntent } from "./ports/notifier";
 export type { NotificationIntent, Notifier, NotifierSinks } from "./ports/notifier";
 
+export { contentSignature, createOverlayLifecycle } from "./ports/overlay-lifecycle";
+export type {
+  OverlayHooks,
+  OverlayLifecycle,
+  OverlayScheduler,
+} from "./ports/overlay-lifecycle";
+
 export { createTheme } from "./ports/theme";
 export type { CssSink, Theme } from "./ports/theme";
 
@@ -79,5 +86,6 @@ export type {
 export { manifestSchemaVersion, registry } from "./adapters/icon-registry";
 export { registryProvider, resolveIcon } from "./adapters/icon";
 export { notifier } from "./adapters/notifier";
+export { idleScheduler, overlayLifecycle } from "./adapters/overlay-lifecycle";
 export { preferences } from "./adapters/preferences";
 export { theme } from "./adapters/theme";
