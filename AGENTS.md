@@ -27,3 +27,11 @@ Format: any non-trivial claim gets an `Evidence:` line and a `Verify:` line (how
 - Bounded slices (one proposal + spec + design + tasks) → OpenSpec (`/opsx-propose`, `/opsx-apply`, `/opsx-archive`). Artifact rules in `openspec/config.yaml` restate this evidence rule per artifact.
 - Never work on main: `scripts/worktree-guard.sh create <id> <slug>` scaffolds `ticket/<id>-<slug>` + worktree, aborts when dirty. Record worktree/branch in the ticket.
 - Keep changes small, verifiable, committable. Never mix planning edits with implementation in one turn.
+
+## 4. CI scope: stock runners only, desktop typecheck is LOCAL
+
+- CI runs the pure gates on `ubuntu-latest`: `make test` and `make typecheck-tests`.
+- `make typecheck` needs `ags` + the Astal/GIR declarations and is a **local** gate. There is no
+  self-hosted runner in this repo, so it is not a CI job (a queued job that never reports is worse
+  than a documented local gate). This mirrors `ags-apps` §4.
+- Verify: `grep -rn 'self-hosted' .github/workflows/` → no matches; `make test typecheck-tests`.

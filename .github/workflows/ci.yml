@@ -1,9 +1,11 @@
 name: ci
 
-# AD-23 (per-repo CI): `ags-platform` runs typecheck + tests. A STOCK runner
-# covers the pure gates (the ports + the test suite); a SELF-HOSTED linux runner
-# covers the desktop-stack typecheck, which needs the machine's GIR declarations
-# and the `ags`/`gnim` packages.
+# AD-23 (per-repo CI): `ags-platform` runs typecheck + tests on a STOCK runner.
+# The pure gates (ports + test suite) need only Node. The desktop-stack typecheck
+# needs the machine's GIR declarations and the `ags`/`gnim` packages, so it is a
+# LOCAL gate (`make typecheck`), not a CI job: this repo has no self-hosted
+# runner, and a queued job that never reports is worse than a documented local
+# gate. This mirrors `ags-apps` (AGENTS.md §4).
 on:
   push:
     branches: [main]
@@ -29,17 +31,4 @@ jobs:
       - name: Pure tests typecheck
         run: make typecheck-tests
 
-  desktop-typecheck:
-    name: desktop-stack typecheck (self-hosted, AD-23)
-    runs-on: [self-hosted, linux]
-    steps:
-      - uses: actions/checkout@v4
-      # Generate this host's GIR declarations (@girs/), env.d.ts, the
-      # `ags types`-owned tsconfig.json, and the node_modules/ags + gnim links.
-      # All are gitignored.
-      - name: Generate GIR types + ags/gnim links
-        run: ags types -d "$PWD" -u
-      # Fail only on errors in this repo's tree; tolerate the AGS runtime's own
-      # /usr/share/ags/js/ errors (mirrors dotfiles-v3's bar-typecheck gate).
-      - name: Typecheck the package
-        run: make typecheck
+

@@ -29,6 +29,9 @@ make typecheck-tests  # typecheck the pure test suite (stock runner)
 make typecheck        # LOCAL only: needs the desktop stack/GIR declarations
 ```
 
+CI runs only `make test` + `make typecheck-tests` on a stock runner; `make typecheck` is the
+documented local gate (no self-hosted runner).
+
 ## Tooling
 
 - **BMAD-METHOD:** `.agents/skills/`.
