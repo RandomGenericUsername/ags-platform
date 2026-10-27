@@ -1,7 +1,8 @@
-.PHONY: help test typecheck typecheck-tests bundle
+.PHONY: help test exports typecheck typecheck-tests bundle
 
 help:
 	@echo "test              Pure-module unit tests (node --test, stock runner)"
+	@echo "exports           Package/export boundary gate (stock runner)"
 	@echo "typecheck-tests   Typecheck the pure test suite (stock runner)"
 	@echo "typecheck         Desktop-stack typecheck (self-hosted runner, AD-23)"
 	@echo "bundle            AGS bundle smoke check (desktop stack)"
@@ -11,6 +12,11 @@ help:
 # Node's native type stripping executes them with no build step.
 test:
 	node --test tests/
+
+# Package/export boundary gate: the declared entry point and every subpath
+# resolve to a file in the package. Split out so CI names the failure.
+exports:
+	node --test tests/exports.test.ts
 
 # Pure tests typecheck: also stock-safe (types: ["node"], no gi://, no ags).
 typecheck-tests:

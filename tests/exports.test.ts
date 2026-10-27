@@ -12,7 +12,12 @@ const pkg = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
 
 test("the package boundary declares the entry point and subpaths", () => {
   assert.equal(pkg.name, "ags-platform")
-  assert.deepEqual(Object.keys(pkg.exports).sort(), [".", "./adapters/*", "./ports/*"])
+  assert.deepEqual(Object.keys(pkg.exports).sort(), [
+    ".",
+    "./adapters/*",
+    "./conformance/*",
+    "./ports/*",
+  ])
 })
 
 test("every declared export resolves to a file in the package", () => {
@@ -20,6 +25,7 @@ test("every declared export resolves to a file in the package", () => {
     ".": "",
     "./ports/*": "event-client",
     "./adapters/*": "icon",
+    "./conformance/*": "app-conformance",
   }
   for (const [key, target] of Object.entries(pkg.exports)) {
     const sample = samples[key]

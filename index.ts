@@ -68,6 +68,42 @@ export type {
   OverlayScheduler,
 } from "./ports/overlay-lifecycle";
 
+// --- app contract: manifest + palette-refresh + template conformance (REQ-012) ---
+
+export {
+  AGS_APP_MANIFEST_FILE,
+  AGS_APP_MANIFEST_SCHEMA_VERSION,
+  AGS_APP_PATH_SEGMENT_PATTERN,
+  parseAgsAppManifest,
+  validateAgsAppManifest,
+} from "./ports/app-manifest";
+export type {
+  AgsAppManifest,
+  AgsAppManifestIssue,
+  AgsAppManifestLive,
+  AgsAppManifestRestart,
+  AgsAppManifestValidation,
+  AgsAppMode,
+} from "./ports/app-manifest";
+
+export {
+  PALETTE_REFRESH_COMMAND,
+  createPaletteRefreshHandler,
+} from "./ports/palette-refresh";
+export type {
+  PaletteRefresh,
+  PaletteRefreshRequestHandler,
+  PaletteRefreshResult,
+} from "./ports/palette-refresh";
+
+export { AGS_APP_REQUIRED_FILES, checkAppRepo } from "./ports/app-conformance";
+export type {
+  AppConformanceIssue,
+  AppConformanceOptions,
+  AppConformanceReport,
+  AppRepoReader,
+} from "./ports/app-conformance";
+
 export { createReplacingCssSink, createTheme } from "./ports/theme";
 export type { CssProviderHandle, CssProviderHost, CssSink, Theme } from "./ports/theme";
 

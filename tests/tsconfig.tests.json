@@ -36,5 +36,5 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["./**/*.ts", "../ports/**/*.ts"]
+  "include": ["./**/*.ts", "../ports/**/*.ts", "../conformance/**/*.ts"]
 }

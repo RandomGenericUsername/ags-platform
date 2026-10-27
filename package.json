@@ -7,6 +7,7 @@
   "exports": {
     ".": "./index.ts",
     "./ports/*": "./ports/*.ts",
-    "./adapters/*": "./adapters/*.ts"
+    "./adapters/*": "./adapters/*.ts",
+    "./conformance/*": "./conformance/*.ts"
   }
 }
