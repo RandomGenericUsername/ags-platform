@@ -22,10 +22,11 @@
 ## Requirements
 
 - [REQ-011-overlay-lifecycle/ticket.md](./REQ-011-overlay-lifecycle/ticket.md) — Overlay lifecycle primitive (present-first, defer-heavy, skip-when-unchanged) | `in-progress` | links: none
+- [REQ-012-ags-app-manifest-helper/ticket.md](./REQ-012-ags-app-manifest-helper/ticket.md) — AGS app manifest helper, palette-refresh handler helper and template conformance | `proposed` | links: none
 
 ## Bugs
 
-(none)
+- [BUG-001-theme-provider-accumulation/ticket.md](./BUG-001-theme-provider-accumulation/ticket.md) — Theme adapter adds a CSS provider per refresh instead of replacing one | `triage` | severity: medium
 
 ## Ops tasks
 
