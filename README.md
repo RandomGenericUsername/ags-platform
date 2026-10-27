@@ -1,6 +1,7 @@
 # ags-platform
 
-Reusable AGS platform: ports, shared adapters, and the event-contract client.
+Reusable AGS platform: ports, shared adapters, the event-contract client, and the
+standalone-app contract helpers.
 
 The seams every AGS app builds on. Design of record:
 `dotfiles-v3:docs/101-ags-platform-architecture.md`.
@@ -15,11 +16,21 @@ The seams every AGS app builds on. Design of record:
 `ags-apps` (bar + the sibling apps), plus any AGS app that wants shared icons/events/preferences/
 notifications. The platform depends on `contracts`; it never depends on an app.
 
+## Releases
+
+Current release: **`v0.3.0`** — the app manifest, palette-refresh and
+template-conformance helpers, plus the one-provider Theme fix. See
+[`CHANGELOG.md`](./CHANGELOG.md).
+
+The package stays `private` and `package.json` keeps the historical `0.0.0`;
+the annotated git tag is the release identity. `ags-apps` currently pins
+`v0.2.0` (`AGS_PLATFORM_VERSION` in its `Makefile`); re-pinning is a consumer
+repo change.
+
 ## Workspace
 
 Developed beside its consumers under `~/Development/dotfiles/`. The canonical ownership/pin map
-is [`../dotfiles-v3/docs/WORKSPACE.md`](../dotfiles-v3/docs/WORKSPACE.md). `ags-apps` pins this
-unit at `v0.2.0` (`AGS_PLATFORM_VERSION` in its `Makefile`).
+is [`../dotfiles-v3/docs/WORKSPACE.md`](../dotfiles-v3/docs/WORKSPACE.md).
 
 ## App contract helpers
 
@@ -71,6 +82,15 @@ App repos can use the conformance CLI in their own gate:
 ```bash
 node node_modules/ags-platform/conformance/check.ts .
 ```
+
+## Theme
+
+`createReplacingCssSink(host)` keeps one palette `Gtk.CssProvider` per app:
+each apply adds the next provider before removing the previous one and only
+removes the handle it added. `adapters/theme.ts` binds the sink to GTK and no
+longer routes palette refreshes through the AGS app CSS helper, so repeated
+refreshes do not accumulate providers (BUG-001). The public `Theme`/`CssSink`
+port is unchanged; the app stylesheet and GTK theme are untouched.
 
 ## Gates
 
