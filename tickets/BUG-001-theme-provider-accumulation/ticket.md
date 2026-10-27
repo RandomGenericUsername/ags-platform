@@ -2,14 +2,14 @@
 id: BUG-001
 title: "Theme adapter adds a CSS provider per refresh instead of replacing one"
 kind: bug
-status: triage
+status: in-progress
 lane: 2
 severity: medium
 links:
   openspec: none
   bmad: none
-worktree: none
-branch: none
+worktree: .worktrees/REQ-012/
+branch: ticket/REQ-012-ags-app-contract
 repro: "rg -n 'paletteProvider|remove_provider|apply_css' adapters/theme.ts /usr/share/ags/js/lib/gtk4/app.ts"
 observed: "adapters/theme.ts routes theme.apply() to app.apply_css(path). AGS apply_css creates a new Gtk.CssProvider, adds it to the display and retains it in #cssProviders; no palette provider is removed. The live apps call theme.apply() on every wallpaper done/error, so the provider list grows and the design doc's 'one dedicated provider, replaced in place' contract is false."
 expected: "One palette provider per app; each refresh adds the new provider before removing the previous one, leaving the app stylesheet and GTK theme untouched. A test proves the replace sequence and the live refresh path does not accumulate."
