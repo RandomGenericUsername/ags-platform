@@ -2,13 +2,13 @@
 id: REQ-012
 title: "AGS app manifest helper, palette-refresh handler helper and template conformance"
 kind: requirement
-status: proposed
+status: in-progress
 lane: 3
 links:
   openspec: none
   bmad: none
-worktree: none
-branch: none
+worktree: .worktrees/REQ-012/
+branch: ticket/REQ-012-ags-app-contract
 ---
 
 # AGS app manifest helper, palette-refresh handler helper and template conformance
