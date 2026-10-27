@@ -2,7 +2,7 @@
 id: BUG-001
 title: "Theme adapter adds a CSS provider per refresh instead of replacing one"
 kind: bug
-status: in-progress
+status: done
 lane: 2
 severity: medium
 links:
@@ -56,3 +56,75 @@ pins add-new → remove-old, and a live refresh path test proves no accumulation
   palette `app.apply_css` remains.
 - The doc update belongs to the consumer docs ticket; do not edit dotfiles-v3 from
   this repo.
+
+## Implementation
+
+- `ports/theme.ts` — added `CssProviderHandle`, `CssProviderHost` and
+  `createReplacingCssSink(host)`. The sink keeps one handle: it calls
+  `host.add(next)` and only then `host.remove(previous)`. A failed add leaves the
+  previous provider current, so the sink never loses track of what it installed.
+  `Theme` and `CssSink` are unchanged (the public port is preserved).
+- `adapters/theme.ts` — binds the host to `Gtk.CssProvider` +
+  `Gtk.StyleContext` at `STYLE_PROVIDER_PRIORITY_USER` and keeps the stable
+  `colors.css` pointer. It no longer imports or calls the AGS app CSS helper, so
+  the app stylesheet installed at app start and the GTK theme are untouched.
+- `index.ts` — exports `createReplacingCssSink` and the two host types alongside
+  the existing `createTheme` / `CssSink` / `Theme` exports.
+- `tests/theme-provider.test.ts` — a fake display records add/remove operations
+  and the installed set. The test applies the palette five times and asserts
+  `add:next → remove:previous` each time, exactly one provider installed after
+  every refresh, and a peak of two only while the new provider is added before
+  the old is removed. A source-level test pins the adapter to no `apply_css`,
+  no `reset_css`, no `ags/gtk4/app` import, and one add/remove pair.
+
+## Verification
+
+Red (test authored before the fix):
+
+```text
+$ node --test tests/theme-provider.test.ts
+SyntaxError: The requested module '../ports/theme.ts' does not provide an export named 'createReplacingCssSink'
+✖ tests/theme-provider.test.ts
+ℹ tests 1  ℹ pass 0  ℹ fail 1
+```
+
+The repro also showed the old path before the change:
+`adapters/theme.ts:26: app.apply_css(path)`.
+
+Green:
+
+```text
+$ make test
+ℹ tests 25  ℹ pass 25  ℹ fail 0
+
+$ make typecheck-tests
+OK: 0 errors in the pure test suite
+
+$ make typecheck   # after `ags types -d "$PWD" -u`
+tolerated third-party errors (/usr/share/ags/js): 7
+OK: 0 errors in the ags-platform tree
+```
+
+Repro after the fix:
+
+```text
+$ rg -n 'apply_css|paletteProvider|import app from' adapters/theme.ts
+(no matches, exit 1)
+
+$ rg -n 'paletteProvider|remove_provider|apply_css' adapters/theme.ts /usr/share/ags/js/lib/gtk4/app.ts
+/usr/share/ags/js/lib/gtk4/app.ts:... (the AGS helper itself)
+adapters/theme.ts:59: Gtk.StyleContext.remove_provider_for_display(
+```
+
+The only palette provider operation in the adapter is now its own
+`remove_provider_for_display` for the handle it added.
+
+## Manual boundary
+
+The fake-display test proves the sink's call order and provider count at the
+seam `ports/theme.ts` owns; it does not execute GTK. The real
+`Gtk.StyleContext` binding is covered by the local `make typecheck` (types) and
+remains manually verified for live visual behavior: run a live app through two
+palette refreshes and confirm the display keeps one palette provider. No GUI was
+driven in this fix. The consumer refresh call sites (`theme.apply()`) are in
+`ags-apps` and need no change because `Theme`/`CssSink` did not change.

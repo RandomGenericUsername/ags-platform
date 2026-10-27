@@ -68,8 +68,8 @@ export type {
   OverlayScheduler,
 } from "./ports/overlay-lifecycle";
 
-export { createTheme } from "./ports/theme";
-export type { CssSink, Theme } from "./ports/theme";
+export { createReplacingCssSink, createTheme } from "./ports/theme";
+export type { CssProviderHandle, CssProviderHost, CssSink, Theme } from "./ports/theme";
 
 export type { ReactiveRuntime, ReadAccessor, Setter } from "./ports/reactive";
 

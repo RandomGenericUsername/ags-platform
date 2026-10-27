@@ -28,6 +28,50 @@ export interface CssSink {
 }
 
 /**
+ * A provider that `add` returned. Opaque to the sink: only the host knows how
+ * to remove it.
+ */
+export type CssProviderHandle = object;
+
+/**
+ * The display-side half of a provider-owned CSS sink. The host creates the
+ * provider, adds it to the display, and can remove exactly the handle it
+ * returned — no shared/global provider list is involved.
+ */
+export interface CssProviderHost {
+  /** Create a provider for `path` and add it to the display. */
+  add(path: string): CssProviderHandle;
+  /** Remove a provider previously returned by `add`. */
+  remove(provider: CssProviderHandle): void;
+}
+
+/**
+ * A `CssSink` that keeps exactly ONE provider on the display per app (AD-13).
+ *
+ * Each apply creates and ADDS the next provider BEFORE removing the previous
+ * one, so the palette is never momentarily absent from the display. The sink
+ * removes only a handle it added itself: the app stylesheet installed by
+ * `app.start({ css: style })` and the GTK theme are never touched.
+ *
+ * This exists because the AGS app CSS helper creates, adds and RETAINS a
+ * provider on every call. Routing palette refreshes through it accumulated one
+ * provider per refresh (BUG-001).
+ */
+export function createReplacingCssSink(host: CssProviderHost): CssSink {
+  let current: CssProviderHandle | null = null;
+  return {
+    apply(path: string): void {
+      const next = host.add(path);
+      const previous = current;
+      // Track the new provider before removing the old one: if removal fails,
+      // the sink still owns the provider it just installed.
+      current = next;
+      if (previous !== null) host.remove(previous);
+    },
+  };
+}
+
+/**
  * `palettePath` is the STABLE pointer (`colors.css`), not the runtime's
  * generation path (`current/colors.gtk.css`): the stable pointer is repointed
  * when the palette changes, so re-applying it is never stale (F9).

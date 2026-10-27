@@ -26,7 +26,7 @@
 
 ## Bugs
 
-- [BUG-001-theme-provider-accumulation/ticket.md](./BUG-001-theme-provider-accumulation/ticket.md) — Theme adapter adds a CSS provider per refresh instead of replacing one | `in-progress` | severity: medium
+- [BUG-001-theme-provider-accumulation/ticket.md](./BUG-001-theme-provider-accumulation/ticket.md) — Theme adapter adds a CSS provider per refresh instead of replacing one | `done` | severity: medium
 
 ## Ops tasks
 
