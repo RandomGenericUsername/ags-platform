@@ -1,0 +1,77 @@
+# colors.yaml — fixture: a conforming palette.v1 producer artifact
+version: "1"
+background: '#123456'
+error: "#123456"
+error_container: "#123456"
+inverse_on_surface: "#123456"
+inverse_primary: "#123456"
+inverse_surface: "#123456"
+on_background: "#123456"
+on_error: '#123456'
+on_error_container: "#123456"
+on_primary: "#123456"
+on_primary_container: "#123456"
+on_primary_fixed: "#123456"
+on_primary_fixed_variant: "#123456"
+on_secondary: "#123456"
+on_secondary_container: '#123456'
+on_secondary_fixed: "#123456"
+on_secondary_fixed_variant: "#123456"
+on_surface: "#123456"
+on_surface_variant: "#123456"
+on_tertiary: "#123456"
+on_tertiary_container: "#123456"
+on_tertiary_fixed: '#123456'
+on_tertiary_fixed_variant: "#123456"
+outline: "#123456"
+outline_variant: "#123456"
+primary: #123456 # unquoted hex, inline comment
+primary_container: "#123456"
+primary_fixed: "#123456"
+primary_fixed_dim: '#123456'
+scrim: "#123456"
+secondary: "#123456"
+secondary_container: "#123456"
+secondary_fixed: "#123456"
+secondary_fixed_dim: "#123456"
+shadow: "#123456"
+source_color: '#123456'
+surface: "#123456"
+surface_bright: "#123456"
+surface_container: "#123456"
+surface_container_high: "#123456"
+surface_container_highest: "#123456"
+surface_container_low: "#123456"
+surface_container_lowest: '#123456'
+surface_dim: "#123456"
+surface_tint: "#123456"
+surface_variant: "#123456"
+tertiary: "#123456"
+tertiary_container: "#123456"
+tertiary_fixed: "#123456"
+tertiary_fixed_dim: '#123456'
+on_backdrop: "#123456"
+
+# additive producer roles (allowed; not part of palette.v1)
+accent: "#abcdef"
+warning: "#fedcba"
+cursor: "#010203"
+
+# legacy alias list — ignored by the provider
+colors:
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"
+  - "#123456"

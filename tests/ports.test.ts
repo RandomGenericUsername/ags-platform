@@ -55,8 +55,21 @@ test("preferences degrade to the fallback and re-read on change", () => {
   assert.equal(get(), "video")
 })
 
-test("theme applies the stable palette pointer", () => {
+test("theme composes the stable palette artifact with role tokens", () => {
   const applied: string[] = []
-  createTheme("/cfg/ags/colors.css", { apply: (p) => applied.push(p) }).apply()
-  assert.deepEqual(applied, ["/cfg/ags/colors.css"])
+  const theme = createTheme({
+    legacyCssPath: "/cfg/ags/colors.css",
+    palettePath: "/state/dotfiles/current/colors.yaml",
+    sink: { apply: (css) => applied.push(css) },
+    readFile: (path) =>
+      path.endsWith("colors.css")
+        ? "@define-color color_01 #ff0000;\n"
+        : "primary: '#00ff00'\n",
+    watchFile: () => () => {},
+  })
+  theme.apply()
+  assert.equal(applied.length, 1)
+  assert.match(applied[0], /^@define-color color_01 #ff0000;/)
+  assert.match(applied[0], /@define-color primary #00ff00;/)
+  assert.equal(theme.palette().roles.primary, "#00ff00")
 })

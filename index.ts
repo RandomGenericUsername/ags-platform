@@ -104,8 +104,30 @@ export type {
   AppRepoReader,
 } from "./ports/app-conformance";
 
-export { createReplacingCssSink, createTheme } from "./ports/theme";
-export type { CssProviderHandle, CssProviderHost, CssSink, Theme } from "./ports/theme";
+export {
+  PALETTE_V1_ROLES,
+  PALETTE_VERSION,
+  PaletteParseError,
+  missingPaletteRoles,
+  paletteCssVariable,
+  parsePaletteYaml,
+  renderPaletteCss,
+} from "./ports/palette";
+export type { Palette } from "./ports/palette";
+
+export {
+  composeThemeCss,
+  createReplacingCssSink,
+  createTheme,
+} from "./ports/theme";
+export type {
+  CssProviderHandle,
+  CssProviderHost,
+  CssSink,
+  PaletteListener,
+  Theme,
+  ThemeOptions,
+} from "./ports/theme";
 
 export type { ReactiveRuntime, ReadAccessor, Setter } from "./ports/reactive";
 
