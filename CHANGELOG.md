@@ -9,6 +9,62 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-01
+
+REQ-013 Phase A: the Theme port becomes the palette provider — typed
+`palette.v1` roles plus one change subscription, with the legacy `@color_*`
+projection unchanged. Ticket:
+[`REQ-013`](./tickets/REQ-013-theme-provider-roles/ticket.md).
+
+### Added
+
+- **Typed palette API** (`ags-platform`, `ports/palette.ts`):
+  `Palette`, `PALETTE_VERSION`, `PALETTE_V1_ROLES`, `parsePaletteYaml`,
+  `renderPaletteCss`, `paletteCssVariable`, `missingPaletteRoles` and
+  `PaletteParseError`. `parsePaletteYaml` reads the runtime's machine-generated
+  `current/colors.yaml` with no YAML dependency: top-level quoted/unquoted
+  `role: "#hex"` scalars and comments, the legacy `colors:` list ignored, an
+  optional `version:` scalar (default `"1"`). Malformed input fails closed with
+  the artifact path and 1-based line. The 51-role `palette.v1` vocabulary is
+  declared from runtime REQ-006 (50 Material roles + `on_backdrop`); additive
+  producer roles are preserved.
+- **Palette subscription and CSS projection on the Theme port**
+  (`ags-platform`, `ports/theme.ts`): `Theme.palette()` and
+  `Theme.subscribe(listener)`, `ThemeOptions`, `PaletteListener` and
+  `composeThemeCss`. One `Gio.FileMonitor` is shared by every listener and is
+  released by the last unsubscribe; listeners run only after the new palette
+  has loaded and been applied. A malformed refresh keeps the previous
+  palette/provider and reports through `onError`.
+- **Role CSS convention** documented in `ports/palette.ts` and `README.md`:
+  every declared role is projected as `@define-color <role> <hex>;`, so app
+  CSS uses `@primary`, `@on_surface`, `@on_backdrop` with no alias prefix.
+  `paletteCssVariable(role)` builds the `@role` reference.
+- **Single composed provider**: the adapter reads the legacy `colors.css`, adds
+  the role block, and installs the result as ONE provider — legacy content is
+  the byte-identical prefix, so every current `@color_*` app resolves exactly
+  as before. The adapter now also resolves
+  `$XDG_STATE_HOME/dotfiles/current/colors.yaml` (via `GLib.get_user_state_dir`)
+  and watches the link for atomic repoints.
+
+### Changed
+
+- `createTheme` now takes `ThemeOptions` (`legacyCssPath`, `palettePath`, `sink`,
+  `readFile`, `watchFile`, `onError`) instead of `(palettePath, sink)`.
+  `CssSink.apply` and `CssProviderHost.add` take CSS text (`load_from_string`)
+  instead of a path, because the legacy sheet and role defines must travel in
+  one provider. `createReplacingCssSink` keeps the add-then-remove contract.
+  This is a port-level change only: apps keep calling `theme.apply()`.
+- Pure suite grows to 62 tests: palette parsing/failures, quoted/unquoted hex,
+  subscription + cleanup, one-monitor sharing, provider replacement, legacy
+  byte-compatibility and the adapter's one-monitor/one-provider source shape.
+
+### Deferred
+
+- **Phase B** — kit CSS on role names plus per-app role migration (bar widgets,
+  icme, btop-theme-studio, wallpaper-selector, capture, clipboard,
+  notifications) and removal of the legacy aliases. Follow-up tickets; this
+  release intentionally changes no app.
+
 ## [0.3.0] - 2026-10-26
 
 The standalone AGS app contract lands in the platform, with the Theme fix that

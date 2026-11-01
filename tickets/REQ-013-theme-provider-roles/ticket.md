@@ -104,6 +104,7 @@ base `a1bfbf4` (main).
 | Red-before proof (role projection is load-bearing) | temporarily forced `composeThemeCss` to legacy-only, then `node --test tests/theme-provider.test.ts` | 2 failures (`…legacy colors.css verbatim plus role defines`, `subscribe shares ONE monitor…`); restored byte-for-byte, 10/10 green |
 | Adapter keeps one provider + one monitor | `node --test tests/theme-provider.test.ts` | source shape: `add_provider_for_display` ×1, `remove_provider_for_display` ×1, `monitor_file` ×1, `GLib.timeout_add` ×1, `load_from_string`, `Gio.FileMonitorFlags.WATCH_MOVES`, no `app.apply_css` |
 | Atomic repoint produces a monitor event | `gjs` probe: `Gio.File.new_for_path(link).monitor_file(WATCH_MOVES)`, then `ln -sfn new link` | one `RENAMED` event per repoint; writing through the link emits none — the runtime's atomic symlink swap is the trigger |
+| Composed sheet is valid GTK CSS (role duplication is harmless) | `gjs` probe: build `colors.css` + 56 role defines, `new Gtk.CssProvider().load_from_string(css)` | `CSS provider parsed OK: 56 roles, 2917 legacy bytes` (no CSS error with roles defined twice) |
 
 ## Phase A — build notes
 
@@ -128,9 +129,20 @@ base `a1bfbf4` (main).
 
 | Commit | Subject |
 | --- | --- |
-| `TBD-start` | `chore(REQ-013): start — record worktree/branch, move to in-progress` |
-| `TBD-feat` | `feat(REQ-013): theme provider palette role API + one subscription` |
-| `TBD-docs` | `docs(REQ-013): record Phase A evidence, tick acceptance` |
+| `881b040` | `chore(REQ-013): start — record worktree/branch, split Phase A/B` |
+| `5f1fb66` | `feat(REQ-013): theme provider palette role API + one subscription` |
+| this closeout commit | `docs(REQ-013): add v0.4.0 notes and record Phase A evidence` |
+
+## Status
+
+**Phase A complete on `ticket/REQ-013-theme-provider-roles`; Phase B open.**
+The theme provider now exposes the typed `palette.v1` roles and one change
+subscription, with one composed provider that keeps the legacy `@color_*`
+projection byte-identical. No app was changed and no app needs to change to
+adopt v0.4.0. The branch is neither merged nor pushed, and no tag was created;
+`v0.4.0` publishing and the `ags-apps` pin bump are orchestrator steps (see
+Deployment). Phase B (kit + app role migration) is tracked by follow-up
+tickets.
 
 ## Phase B — follow-up (NOT this branch)
 

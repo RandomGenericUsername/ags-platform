@@ -152,12 +152,12 @@ function describe(error: unknown): string {
 /**
  * Build a Theme over the host's two stable artifacts.
  *
- * Failure policy: `palette()` fails closed with `PaletteParseError`. The first
- * `apply()` degrades to the legacy sheet when the palette is missing or
- * malformed (reported through `onError`), so a missing producer cannot brick an
- * app whose CSS only needs the legacy aliases. A change reload that cannot
- * load the palette leaves the previous provider and palette in place. A failed
- * legacy read or provider install still throws, matching the old path-based
+ * Failure policy: `palette()` fails closed with `PaletteParseError`. An
+ * `apply()` that cannot load the palette degrades to the legacy sheet
+ * (reported through `onError`), so a missing producer cannot brick an app whose
+ * CSS only needs the legacy aliases. A change reload that cannot load the
+ * palette leaves the previous provider and palette in place. A failed legacy
+ * read or provider install still throws, matching the old path-based
  * behaviour; a failure inside the monitor callback is reported instead of
  * thrown.
  */

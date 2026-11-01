@@ -18,14 +18,14 @@ notifications. The platform depends on `contracts`; it never depends on an app.
 
 ## Releases
 
-Current release: **`v0.3.0`** — the app manifest, palette-refresh and
-template-conformance helpers, plus the one-provider Theme fix. See
+Current release: **`v0.4.0`** — the Theme provider role API
+(`palette()` + `subscribe()`), one composed CSS provider, and the app
+manifest/palette-refresh/conformance helpers from v0.3.0. See
 [`CHANGELOG.md`](./CHANGELOG.md).
 
 The package stays `private` and `package.json` keeps the historical `0.0.0`;
-the annotated git tag is the release identity. `ags-apps` currently pins
-`v0.2.0` (`AGS_PLATFORM_VERSION` in its `Makefile`); re-pinning is a consumer
-repo change.
+the annotated git tag is the release identity. `ags-apps` pins
+`AGS_PLATFORM_VERSION` in its `Makefile`; re-pinning is a consumer repo change.
 
 ## Workspace
 
@@ -85,12 +85,50 @@ node node_modules/ags-platform/conformance/check.ts .
 
 ## Theme
 
-`createReplacingCssSink(host)` keeps one palette `Gtk.CssProvider` per app:
-each apply adds the next provider before removing the previous one and only
-removes the handle it added. `adapters/theme.ts` binds the sink to GTK and no
-longer routes palette refreshes through the AGS app CSS helper, so repeated
-refreshes do not accumulate providers (BUG-001). The public `Theme`/`CssSink`
-port is unchanged; the app stylesheet and GTK theme are untouched.
+One mechanism per app: one `Gio.FileMonitor`, one composed `Gtk.CssProvider`.
+
+```ts
+import { theme } from "ags-platform"
+
+theme.apply()                          // install the palette now
+const palette = theme.palette()        // { version: "1", roles: { primary: "#…", … } }
+const unsubscribe = theme.subscribe((next) => {
+  // `next` is already loaded AND applied; read it directly.
+  render(next.roles.on_surface)
+})
+// later
+unsubscribe()                          // stops the monitor when the last listener leaves
+```
+
+- `theme.palette()` parses the runtime's `current/colors.yaml` without a YAML
+  dependency. It accepts the machine-generated flat shape (`role: "#hex"`,
+  quoted or unquoted, with comments), ignores the legacy `colors:` list, keeps
+  additive producer roles, and fails closed with `PaletteParseError` (source +
+  line) on malformed input. `subscribe()` is change-only: read `palette()` for
+  the initial value.
+- `theme.subscribe(listener)` shares ONE monitor across listeners, reloads the
+  palette, re-applies the CSS, then notifies. The last unsubscribe stops the
+  monitor. A malformed refresh keeps the previous palette/provider installed
+  and reports through `onError`.
+- The provider carries the legacy `colors.css` content **verbatim** and appends
+  one `@define-color <role> <hex>;` per declared role. Every current
+  `@color_*` app is therefore unchanged through Phase A; migrated apps may use
+  the role directly:
+  ```css
+  .card     { color: @on_surface; background: @surface_container; }
+  .floating { color: @on_backdrop; }
+  ```
+  `paletteCssVariable("primary")` returns the `@primary` reference for code
+  that builds CSS strings.
+- `createReplacingCssSink(host)` keeps exactly one provider per app: each apply
+  adds the next provider before removing the previous one and only removes the
+  handle it added. The app stylesheet and GTK theme are untouched (BUG-001).
+- The exports are `PALETTE_V1_ROLES`, `PALETTE_VERSION`, `parsePaletteYaml`,
+  `renderPaletteCss`, `paletteCssVariable`, `missingPaletteRoles`,
+  `composeThemeCss`, `createTheme`, `createReplacingCssSink` and the
+  `Palette`/`Theme`/`ThemeOptions`/`CssSink`/`CssProvider*` types.
+- Phase B (kit + per-app role migration, including btop-theme-studio and icme)
+  is a separate ticket; the legacy aliases are not removed here.
 
 ## Gates
 
