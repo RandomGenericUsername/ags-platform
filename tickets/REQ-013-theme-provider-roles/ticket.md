@@ -2,7 +2,7 @@
 id: REQ-013
 title: "Theme provider: palette.v1 role API + change subscription"
 kind: requirement
-status: in-progress
+status: done
 lane: 3
 links:
   openspec: none
@@ -176,3 +176,18 @@ add-then-remove, legacy behavior only removed once every consumer is migrated.
    the new tag.
 4. No app code change is required for this release: `theme.apply()` keeps its
    signature and the legacy `@color_*` sheet is applied verbatim.
+
+
+## Outcome
+
+Phase A released as `v0.4.0` and deployed (PIN-0123/PIN-0128):
+- typed `palette()` parses the runtime `colors.yaml` (56 live roles incl.
+  `on_backdrop`) with no YAML dependency; `subscribe()` provides one monitor
+  and one replace-in-place CSS provider;
+- legacy `@color_*` sheet still applied for compatibility; roles defined
+  alongside it;
+- Phase B complete: all seven consumers (bar, notifications, capture,
+  clipboard, wallpaper-selector, btop-theme-studio, icme) use roles; deployed
+  legacy-token count is 0 across all of them;
+- ICME additionally uses `palette()`/`subscribe()` directly and was verified
+  repainting on a palette repoint.
