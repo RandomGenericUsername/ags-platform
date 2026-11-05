@@ -82,7 +82,7 @@ The work is deliberately split so it can be deployed without touching any app:
       `make typecheck` reports 0 in-tree errors.
 - [x] No app-specific policy/paths enter the platform core (paths live in the
       dotfiles runtime adapter).
-- [ ] Publish `v0.4.0` tag (orchestrator step; this branch is not tagged).
+- [x] Publish `v0.4.0` tag (orchestrator step; this branch is not tagged).
 
 ## Phase A — evidence / verify
 
