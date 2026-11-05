@@ -23,7 +23,7 @@
 
 - [REQ-011-overlay-lifecycle/ticket.md](./REQ-011-overlay-lifecycle/ticket.md) — Overlay lifecycle primitive (present-first, defer-heavy, skip-when-unchanged) | `in-progress` | links: none
 - [REQ-012-ags-app-manifest-helper/ticket.md](./REQ-012-ags-app-manifest-helper/ticket.md) — AGS app manifest helper, palette-refresh handler helper and template conformance | `done` | links: none
-- [REQ-013-theme-provider-roles/ticket.md](./REQ-013-theme-provider-roles/ticket.md) — Theme provider: `palette.v1` role API + change subscription | `in-progress` | depends: runtime REQ-006; Phase A on branch, Phase B follow-up
+- [REQ-013-theme-provider-roles/ticket.md](./REQ-013-theme-provider-roles/ticket.md) — Theme provider: `palette.v1` role API + change subscription | `done` | tag: v0.4.0 (Phase A); Phase B complete per Outcome
 
 ## Bugs
 
@@ -31,7 +31,7 @@
 
 ## Ops tasks
 
-(none)
+- [OPS-001-index-status-sync](./OPS-001-index-status-sync/ticket.md) — Sync REQ-013 INDEX status with the shipped v0.4.0 tag | `done` | worktree: .worktrees/OPS-001/ | branch: ticket/OPS-001-index-status-sync
 
 ## Spikes
 
