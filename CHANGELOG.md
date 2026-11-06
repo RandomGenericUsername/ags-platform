@@ -9,6 +9,49 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-05
+
+REQ-016: app-scoped Skin instances. Every AGS app reads its own
+`$XDG_CONFIG_HOME/<configDir>/skin.css` while sharing the one token map.
+Ticket: [`REQ-016`](./tickets/REQ-016-skin-app-scope/ticket.md).
+
+### Added
+
+- **`createAppSkin({ configDir, ...overrides })`** in `adapters/skin.ts`.
+  Resolves `$XDG_CONFIG_HOME/<configDir>/skin.css` and keeps the shared
+  `$XDG_STATE_HOME/dotfiles/current/skin.json` plus the unchanged palette
+  artifacts. Sink, watcher, composition, USER priority (800) and failure
+  semantics are the same as the bar's. Each instance owns its provider sink and
+  monitors; `configDir` is an input, not a platform app list.
+- **`createAppSkinValue(skin, key, fallback)`** binds the reactive accessor to
+  an app-scoped instance. `skinValue(key, fallback)` keeps its existing
+  signature for the bar.
+- Pure `adapters/skin-scope.ts` carries the per-`configDir` path resolution so
+  the stock `node --test` runner exercises it without GTK/GLib.
+- `index.ts` explicitly re-exports `createAppSkin`, `createAppSkinValue` and
+  `AppSkinOptions`.
+
+### Changed
+
+- The default `skin` singleton is now exactly
+  `createAppSkin({ configDir: "ags" })`; the bar's behavior and imports are
+  unchanged.
+
+### Tests
+
+- `tests/skin.test.ts` grows to 26 tests: per-configDir path resolution (one
+  shared `skin.json`), two instances with separate providers and monitors, the
+  `ags` default, missing-artifact no-op, USER priority and palette-block
+  composition on an app-scoped instance.
+
+### Release
+
+- Annotated tag `v0.8.0` on the ticket branch's closeout commit.
+- `package.json` remains `private` at `0.0.0`; the tag is the release identity.
+- Gates: `make test` (97 pass), `make exports` (2 pass),
+  `make typecheck-tests` (0 errors) and the local `make typecheck`
+  (0 in-tree errors) all green.
+
 ## [0.7.0] - 2026-11-05
 
 REQ-015: correct Skin token validation against the frozen contracts v0.6.0

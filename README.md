@@ -18,11 +18,11 @@ notifications. The platform depends on `contracts`; it never depends on an app.
 
 ## Releases
 
-Current release: **`v0.7.0`** — per-token Skin validation for the frozen v0.6.0
-vocabulary (including `hairline-w`), following the Skin port + adapter
-(composed USER-priority provider + reactive rhythm/layout tokens), the Theme
-provider role API (`palette()` + `subscribe()`) and the app
-manifest/palette-refresh/conformance helpers. See
+Current release: **`v0.8.0`** — app-scoped Skin instances: every AGS app reads
+its own `$XDG_CONFIG_HOME/<configDir>/skin.css` while sharing one token map.
+This follows the Skin port + adapter (composed USER-priority provider +
+reactive rhythm/layout tokens), the Theme provider role API (`palette()` +
+`subscribe()`) and the app manifest/palette-refresh/conformance helpers. See
 [`CHANGELOG.md`](./CHANGELOG.md).
 
 The package stays `private` and `package.json` keeps the historical `0.0.0`;
@@ -147,11 +147,20 @@ A skin is palette/ink mapping + paint + rhythm/density, with **no structure or
 variant tokens**. The runtime expands it; the platform only composes and
 applies the expanded bytes.
 
-- `$XDG_CONFIG_HOME/ags/skin.css` — runtime-expanded paint/token CSS.
-  `SKIN_CSS_PATH` points at it (`SKIN_CSS_POINTER = "ags/skin.css"`).
-- `$XDG_STATE_HOME/dotfiles/current/skin.json` — the resolved token map.
-  `SKIN_JSON_PATH` points at it (`SKIN_JSON_POINTER =
+- `$XDG_CONFIG_HOME/<configDir>/skin.css` — that app's runtime-expanded
+  paint/token CSS. For the bar `configDir = ags`; `SKIN_CSS_PATH` /
+  `SKIN_CSS_POINTER = "ags/skin.css"` are the bar's pointers. Every other app
+  reads its own directory (`ags-clipboard`, `ags-notifications`, …).
+- `$XDG_STATE_HOME/dotfiles/current/skin.json` — the one resolved token map,
+  shared by every app (`SKIN_JSON_PATH` / `SKIN_JSON_POINTER =
   "dotfiles/current/skin.json"`).
+- The palette artifacts stay shared and unchanged:
+  `$XDG_CONFIG_HOME/ags/colors.css` and
+  `$XDG_STATE_HOME/dotfiles/current/colors.yaml`.
+
+`configDir` is an input, not a platform app list: contracts v0.6.0 emits
+`current/skins/<configDir>.css` per target and links it as
+`config/<configDir>/skin.css`.
 
 ```json
 {
@@ -214,6 +223,7 @@ are rejected (the vocabulary is closed), as are literal hex, `transition`,
 `structure`/`variant`/`order`/`presence` names, and unknown groups.
 
 ```ts
+// The bar: the default singleton is createAppSkin({ configDir: "ags" }).
 import { skin, skinValue } from "ags-platform"
 
 skin.apply() // no-op if either skin artifact is missing
@@ -228,6 +238,22 @@ const spacing = skinValue("layout.bt-list-spacing", "6px")
 unsubscribe() // stops both artifact watchers when the last listener leaves
 ```
 
+Every non-bar app builds its own instance and accessor:
+
+```ts
+import { createAppSkin, createAppSkinValue } from "ags-platform"
+
+const skin = createAppSkin({ configDir: "ags-clipboard" })
+skin.apply() // reads $XDG_CONFIG_HOME/ags-clipboard/skin.css + shared skin.json
+
+const panelWidth = createAppSkinValue(skin, "layout.panel-width", 360)
+const spacing = createAppSkinValue(skin, "layout.bt-list-spacing", 4)
+```
+
+Two instances own separate provider sinks and watchers. The default `skin`
+singleton keeps the bar's `ags` pointers, so existing bar imports need no
+change.
+
 - **Composition:** the one provider's sheet is the runtime palette block
   (`colors.css` verbatim + `palette.v1` role defines, exactly as `theme.ts`
   composes it) followed by `skin.css`. The palette prefix is mandatory:
@@ -237,17 +263,18 @@ unsubscribe() // stops both artifact watchers when the last listener leaves
   reapplies it, then notifies listeners. Missing artifacts are a no-op (the app
   fallback CSS stays); a malformed skin keeps the previous provider and reports
   through `onError`. The adapter never expands a skin.
-- **Tokens:** `skinValue(key, fallback)` returns an accessor-compatible cell
-  (callable + `.peek()`). Bare names such as `panel-width` resolve within the
-  declared group order; `group.name` is accepted too. Missing, removed or
-  type-invalid tokens yield the fallback, and reloads update the cell in place
-  so widgets do not remount.
-- **Exports:** `skin`, `skinValue`, `SKIN_CSS_PATH`, `SKIN_JSON_PATH`, the
-  pointer constants, `parseSkinJson`, `validateSkinCss`,
-  `validateRoleExpression`, `isRoleExpression`, `composeSkinCss`,
-  `createReplacingSkinCssSink`, `createSkin`, `createSkinValue`,
-  `readSkinToken`, `skinTokenValue`, `SkinParseError` and the
-  `Skin`/`SkinOptions`/`SkinTokens`/`SkinCss*` types.
+- **Tokens:** `skinValue(key, fallback)` reads the bar singleton;
+  `createAppSkinValue(skin, key, fallback)` reads an app-scoped instance. Both
+  return an accessor-compatible cell (callable + `.peek()`). Bare names such as
+  `panel-width` resolve within the declared group order; `group.name` is
+  accepted too. Missing, removed or type-invalid tokens yield the fallback, and
+  reloads update the cell in place so widgets do not remount.
+- **Exports:** `createAppSkin`, `createAppSkinValue`, `skin`, `skinValue`,
+  `SKIN_CSS_PATH`, `SKIN_JSON_PATH`, the pointer constants, `parseSkinJson`,
+  `validateSkinCss`, `validateRoleExpression`, `isRoleExpression`,
+  `composeSkinCss`, `createReplacingSkinCssSink`, `createSkin`,
+  `createSkinValue`, `readSkinToken`, `skinTokenValue`, `SkinParseError` and the
+  `AppSkinOptions`/`Skin`/`SkinOptions`/`SkinTokens`/`SkinCss*` types.
 
 ## Gates
 
