@@ -131,7 +131,13 @@ function watchPalette(path: string, onChange: () => void): () => void {
   };
 }
 
-//: The bar's one Theme; app.tsx calls `theme.apply()` in main().
+/**
+ * @deprecated v0.9.0 — the split Theme/Skin pair is kept for one release while
+ * apps migrate to the v2 appearance plane. Use `createAppearance({ configDir })`
+ * or the `appearance` singleton: one provider, one `current/appearance`
+ * monitor and one whole-appearance apply replace `theme.apply()` +
+ * `skin.apply()`.
+ */
 export const theme = createTheme({
   legacyCssPath: PALETTE_CSS,
   palettePath: PALETTE_YAML,

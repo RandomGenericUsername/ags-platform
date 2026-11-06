@@ -115,6 +115,40 @@ export {
 } from "./ports/palette";
 export type { Palette } from "./ports/palette";
 
+// --- appearance.v2: one provider, one monitored hop, one whole apply (REQ-017) ---
+
+export {
+  APPEARANCE_FORBIDDEN_TOKEN_GROUPS,
+  APPEARANCE_PROVIDER_PRIORITY,
+  APPEARANCE_TOKEN_GROUPS,
+  APPEARANCE_VERSION,
+  AppearanceParseError,
+  appearanceValue,
+  createAppearance as createAppearanceCore,
+  createAppearanceValue,
+  createReplacingAppearanceCssSink,
+  parseAppearanceJson,
+  parseAppearanceTokens,
+  readAppearanceToken,
+  validateAppearanceCss,
+} from "./ports/appearance";
+export type {
+  Appearance,
+  AppearanceCssHost,
+  AppearanceCssSink,
+  AppearanceListener,
+  AppearanceMode,
+  AppearanceModeValues,
+  AppearanceOptions,
+  AppearanceTokenGroup,
+  AppearanceTokenSource,
+  AppearanceTokens,
+  AppearanceTokenValue,
+} from "./ports/appearance";
+
+export { createAppearanceRefreshHandler } from "./ports/appearance-refresh";
+export type { AppearanceRefreshWork } from "./ports/appearance-refresh";
+
 export {
   composeThemeCss,
   createReplacingCssSink,
@@ -175,6 +209,18 @@ export { registryProvider, resolveIcon } from "./adapters/icon";
 export { notifier } from "./adapters/notifier";
 export { idleScheduler, overlayLifecycle } from "./adapters/overlay-lifecycle";
 export { preferences } from "./adapters/preferences";
+export {
+  APPEARANCE_CSS_PATH,
+  APPEARANCE_TOKENS_PATH,
+  APPEARANCE_WATCH_PATH,
+  APPEARANCE_WATCH_POINTER,
+  appearance,
+  createAppearance,
+} from "./adapters/appearance";
+export type { AppearanceAdapterOptions } from "./adapters/appearance";
+
+// Deprecated v1 aliases, kept for one release while the apps migrate to
+// Appearance. New code uses `createAppearance`/`appearance`, not Theme/Skin.
 export {
   SKIN_CSS_PATH,
   SKIN_CSS_POINTER,

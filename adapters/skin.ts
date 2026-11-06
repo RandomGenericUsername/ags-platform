@@ -200,6 +200,10 @@ export interface AppSkinOptions {
 }
 
 /**
+ * @deprecated v0.9.0 — kept for one release while apps migrate to Appearance.
+ * New code uses `createAppearance({ configDir })`, which watches the one
+ * `current/appearance` hop and applies palette + skin as one composed sheet.
+ *
  * Build a Skin scoped to one AGS app's config directory.
  *
  * Resolves `$XDG_CONFIG_HOME/<configDir>/skin.css` and the shared
@@ -226,11 +230,21 @@ export function createAppSkin(options: AppSkinOptions): Skin {
   });
 }
 
-//: The bar's Skin; app.tsx calls `skin.apply()` in main(). Same configDir the
-//: runtime uses for the bar (`ags`), so existing bar behavior is unchanged.
+/**
+ * @deprecated v0.9.0 — use `appearance` / `createAppearance()` instead. This
+ * v1 singleton remains exported for one release so existing bar imports keep
+ * working; it watches the obsolete skin artifacts and installs a separate
+ * provider.
+ *
+ * The bar's Skin; app.tsx calls `skin.apply()` in main(). Same configDir the
+ * runtime uses for the bar (`ags`), so existing bar behavior is unchanged.
+ */
 export const skin = createAppSkin({ configDir: "ags" });
 
 /**
+ * @deprecated v0.9.0 — use `appearance.value("layout.<app>.<token>", fallback)`
+ * or `createAppearanceValue` on an Appearance source.
+ *
  * Reactive rhythm/layout accessor bound to a specific app-scoped Skin. Use
  * this in a non-bar app; the bar keeps the shorter `skinValue` over its
  * default `skin` singleton.
@@ -254,6 +268,8 @@ export function createAppSkinValue<T extends SkinTokenValue>(
 }
 
 /**
+ * @deprecated v0.9.0 — use `appearance.value("layout.<app>.<token>", fallback)`.
+ *
  * Reactive rhythm/layout accessor for the bar's default `skin` singleton. The
  * returned function is accessor compatible (callable, `.peek()`), so widgets
  * read the token without remounting when a skin reload swaps the provider.
