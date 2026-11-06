@@ -2,7 +2,7 @@
 id: REQ-018
 title: "Palette parser accepts theme-producer mode metadata"
 kind: requirement
-status: in-progress
+status: done
 lane: 3
 links:
   openspec: none
@@ -63,21 +63,21 @@ Observed: `PaletteParseError: colors.yaml:2: role "mode" has invalid value "dark
 
 ## Acceptance
 
-- [ ] `parsePaletteYaml` accepts `mode: "dark"` / `mode: "light"` and the
+- [x] `parsePaletteYaml` accepts `mode: "dark"` / `mode: "light"` and the
       aliases `scheme`, `appearance`, `variant`, `is_dark`, `dark` with the
       runtime precedence; metadata never appears in `Palette.roles`.
-- [ ] `Palette.mode?: "dark" | "light"` is exposed when metadata is present and
+- [x] `Palette.mode?: "dark" | "light"` is exposed when metadata is present and
       absent otherwise; the type is exported.
-- [ ] Unknown top-level scalars still raise `PaletteParseError`; role hex
+- [x] Unknown top-level scalars still raise `PaletteParseError`; role hex
       validation and the legacy `colors:` list are unchanged.
-- [ ] Tests cover a real-shaped mode-bearing `colors.yaml` (roles + `colors:`),
+- [x] Tests cover a real-shaped mode-bearing `colors.yaml` (roles + `colors:`),
       mode light, alias tolerance/precedence, unknown scalar failure, role hex
       validation, and theme provider composition.
-- [ ] README and CHANGELOG document the metadata contract and `v0.9.1`.
-- [ ] `node --test tests/palette.test.ts tests/theme-provider.test.ts`,
+- [x] README and CHANGELOG document the metadata contract and `v0.9.1`.
+- [x] `node --test tests/palette.test.ts tests/theme-provider.test.ts`,
       `make test`, `make exports`, `make typecheck-tests` and local
       `make typecheck` are green.
-- [ ] Annotated `v0.9.1` tag on the closeout commit; branch merged
+- [x] Annotated `v0.9.1` tag on the closeout commit; branch merged
       fast-forward to `main`; `main` and the tag pushed.
 
 ## Evidence / verify
@@ -88,14 +88,28 @@ base `aabc5d4` (main, `v0.9.0`).
 | Claim | Command | Result |
 | --- | --- | --- |
 | Baseline failure | parser on the theme-producer v0.6.0 fixture | `PaletteParseError: colors.yaml:2: role "mode" has invalid value "dark"`, exit 1 |
-| Parser + provider suites | `node --test tests/palette.test.ts tests/theme-provider.test.ts` | pending |
-| Full pure suite | `make test` | pending |
-| Package/export gate | `make exports` | pending |
-| Pure test typecheck | `make typecheck-tests` | pending |
-| Local desktop typecheck | `make typecheck` | pending |
-| Exact producer artifact | parser on `theme-producer/tests/fixtures/projections/colors.yaml` | pending |
+| Parser + provider suites | `node --test tests/palette.test.ts tests/theme-provider.test.ts` | `19 pass / 0 fail`, exit 0 |
+| Full pure suite | `make test` | `113 pass / 0 fail`, exit 0 |
+| Package/export gate | `make exports` | `2 pass / 0 fail`, exit 0 |
+| Pure test typecheck | `make typecheck-tests` | `OK: 0 errors in the pure test suite` |
+| Local desktop typecheck | `ags types -d "$PWD" -u` then `make typecheck` | `OK: 0 errors in the ags-platform tree`; 7 tolerated `/usr/share/ags/js` errors |
+| Exact producer artifact | parser on `theme-producer/tests/fixtures/projections/colors.yaml` (`v0.6.0`) | `{"mode":"dark","version":"1","roles":56,"modeRole":false,"colorsRole":false,"modeDefine":false,"primary":"#26201a","on_backdrop":"#fbd0aa"}` |
+| Mode light + aliases + precedence | `node --test tests/palette.test.ts` | dark/light, `scheme`/`appearance`/`variant`, `is_dark`/`dark` and runtime precedence pass; arbitrary alias strings are ignored |
+| Strictness preserved | `node --test tests/palette.test.ts` | `mode: "auto"`, `is_dark: maybe`, unknown `backend: "dark"` and invalid role hex still raise `PaletteParseError` with source + line |
+| No metadata in CSS | `node --test tests/theme-provider.test.ts` | composed provider keeps the legacy prefix + role defines; no `@define-color mode`; `palette().mode` updates dark → light on refresh |
+
+## Commits
+
+| Commit | Subject |
+| --- | --- |
+| `1a33353` | `tickets: file REQ-018 palette mode metadata` |
+| `cb6bb00` | `fix(REQ-018): accept palette mode metadata` |
+| `8d28ad5` | `docs(REQ-018): document palette mode metadata` |
+| this closeout commit | `docs(REQ-018): record palette mode metadata evidence` |
 
 ## Status
 
-In progress on `ticket/REQ-018-palette-mode-metadata`; worktree
-`.worktrees/REQ-018/`, base `aabc5d4` (main, `v0.9.0`).
+Complete on `ticket/REQ-018-palette-mode-metadata`; worktree
+`.worktrees/REQ-018/`, base `aabc5d4` (main, `v0.9.0`). The branch is tagged
+`v0.9.1` and merged fast-forward to `main`; `main` and the tag are pushed. No
+other repository was modified.
