@@ -2,7 +2,7 @@
 id: REQ-017
 title: "Unified Appearance consumer: one provider, one monitor, one apply"
 kind: requirement
-status: in-progress
+status: done
 lane: 3
 links:
   openspec: none
@@ -77,47 +77,78 @@ cd /home/inumaki/Development/dotfiles/contracts &&
 
 ## Acceptance
 
-- [ ] `ports/appearance.ts` is pure and exports the token types/parser,
+- [x] `ports/appearance.ts` is pure and exports the token types/parser,
       `appearanceValue`, composed-CSS validation, the replacing sink and the
       `createAppearance` core.
-- [ ] `adapters/appearance.ts` exposes `createAppearance({ configDir })` with
+- [x] `adapters/appearance.ts` exposes `createAppearance({ configDir })` with
       `apply()`, `tokens()`, `subscribe()` and `value(path, fallback)`;
       `createAppearanceRefreshHandler(appearance, work?)` always re-applies the
       whole appearance and answers one contract JSON response.
-- [ ] The adapter watches exactly `current/appearance`, uses `WATCH_MOVES`,
+- [x] The adapter watches exactly `current/appearance`, uses `WATCH_MOVES`,
       a 50 ms debounce and module-scoped monitor/provider refs.
-- [ ] One apply per generation: a rename simulation emits one provider swap;
+- [x] One apply per generation: a rename simulation emits one provider swap;
       the composed CSS is applied verbatim at priority 800, add-before-remove,
       and missing artifacts are a no-op with the value fallback intact.
-- [ ] `theme`, `skin` and `skinValue` remain exported and documented as
+- [x] `theme`, `skin` and `skinValue` remain exported and documented as
       deprecated aliases pointing at Appearance.
-- [ ] `index.ts` explicitly exports the appearance port, adapter and types.
-- [ ] `node --test tests/skin.test.ts tests/appearance.test.ts`, `make test`,
+- [x] `index.ts` explicitly exports the appearance port, adapter and types.
+- [x] `node --test tests/skin.test.ts tests/appearance.test.ts`, `make test`,
       `make exports`, `make typecheck-tests` and local `make typecheck` are
       green.
-- [ ] README/CHANGELOG document the release; annotated `v0.9.0` tag on the
+- [x] README/CHANGELOG document the release; annotated `v0.9.0` tag on the
       closeout commit; branch merged fast-forward to `main`; nothing pushed.
 
 ## Evidence / verify
 
-Run from `.worktrees/REQ-017/`, branch `ticket/REQ-017-appearance-adapter`,
-base `7c060a3` (main, `v0.8.0`).
+Run from `.worktrees/REQ-017/`, branch `ticket/REQ-017-appearance-adapter`, base
+`7c060a3` (main, `v0.8.0`).
 
 | Claim | Command | Result |
 | --- | --- | --- |
-| Evidence table is filled by the closeout commit. | `git show v0.9.0:tickets/REQ-017-appearance-adapter/ticket.md` | pending |
+| Appearance + Skin suites | `node --test tests/skin.test.ts tests/appearance.test.ts` | `40 pass / 0 fail`, exit 0 (14 appearance, 26 skin) |
+| Full pure suite | `make test` | `111 pass / 0 fail`, exit 0 |
+| Package/export gate | `make exports` | `2 pass / 0 fail`, exit 0 |
+| Pure test typecheck | `make typecheck-tests` | `OK: 0 errors in the pure test suite` |
+| Local desktop typecheck | `ags types -d "$PWD" -u` then `make typecheck` | `OK: 0 errors in the ags-platform tree`; 7 tolerated `/usr/share/ags/js` errors |
+| Watch path is the repointed hop | `node --test tests/appearance.test.ts` | path resolver returns `/state/dotfiles/current/appearance`; the active watcher list is exactly that path, never `/cfg/<configDir>/appearance.css` |
+| One apply per generation | `node --test tests/appearance.test.ts` | one write + three pointer events → ops `add:1`, `add:2`, `remove:1`; a fourth event for identical bytes adds nothing; listener count 1 |
+| Verbatim CSS at USER priority | `node --test tests/appearance.test.ts` | installed CSS equals the composed input byte-for-byte; priorities `[800]`; peak providers 2 (add before remove) |
+| v2 tokens and accessors | `node --test tests/appearance.test.ts` | `surface.panel.radius` → 18, `layout.ags.panel-width` → 380, `layout.ags-clipboard.card-width` → 360; missing/wrong-type paths keep the fallback; mode.light replaces the complete ink group and inherits surface |
+| Refresh handler | `node --test tests/appearance.test.ts` | `appearance.apply()` runs before app work; repeated hash does not rerun app work; deferred/failed work does not advance the hash; responses are exactly one JSON string (`{"ok":true}` etc.) |
+| Missing/malformed artifacts | `node --test tests/appearance.test.ts` | missing CSS or tokens installs 0 providers and keeps the fallback; malformed tokens/CSS reports through `onError` and keeps the previous provider |
+| Structure/hex/transition rejected | `node --test tests/appearance.test.ts` | parser rejects `#...`, `transition`, `structure`/`variant`, unknown roles and unit strings; CSS validation rejects the same outside the palette `@define-color` block |
+| Aliases still exported | `make typecheck` | `theme`, `skin`, `skinValue`, `createAppSkin`, `createAppSkinValue` remain in `index.ts` with `@deprecated` docs pointing at Appearance |
+| Existing tags untouched | `git tag -l` | still `v0.1.0`…`v0.8.0`; new tag is `v0.9.0` |
 
 ### Deviations / notes
 
-- Pending implementation.
+- The public `createAppearance({ configDir })` is the adapter factory; the pure
+  core is exported from `index.ts` as `createAppearanceCore` to avoid a name
+  collision.
+- `validateAppearanceCss` permits literal hex inside the runtime palette
+  `@define-color <role> <hex>;` block, because contracts v0.7.0 requires that
+  block in every composed sheet. Every other literal hex is rejected.
+- The v1 `theme`/`skin` exports are kept behavior-identical for one release
+  rather than re-pointed at `current/appearance`; re-pointing would break apps
+  still reading v1 artifacts. Their JSDoc/README sections mark them deprecated
+  and point at Appearance.
+- No consumer app repository was modified; adopting `createAppearance` in the
+  seven apps is a separate consumer change.
+- `ags types -d "$PWD" -u` generated the gitignored `@girs/`, `env.d.ts` and
+  `tsconfig.json` needed for the local desktop gate.
 
 ## Commits
 
 | Commit | Subject |
 | --- | --- |
-| this commit | `tickets: file REQ-017 unified appearance consumer` |
+| `9abcfb1` | `tickets: file REQ-017 unified appearance consumer` |
+| `084ed29` | `feat(REQ-017): add unified appearance consumer` |
+| `7a12653` | `docs(REQ-017): document the appearance plane and deprecated aliases` |
+| this closeout commit | `docs(REQ-017): record appearance consumer evidence` |
 
 ## Status
 
-In progress on `ticket/REQ-017-appearance-adapter`; worktree
-`.worktrees/REQ-017/`, base `7c060a3` (main, `v0.8.0`).
+Complete on `ticket/REQ-017-appearance-adapter`; worktree
+`.worktrees/REQ-017/`, base `7c060a3` (main, `v0.8.0`). The branch is tagged
+`v0.9.0` and merged fast-forward to `main`; existing tags were not moved and
+nothing was pushed. No other repository was modified.
