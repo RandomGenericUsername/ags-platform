@@ -2,7 +2,16 @@
  * The display-side Skin adapter (frozen Skin Spec v1).
  *
  * The pure port + core live in `../ports/skin`; this file owns the host:
- * the two XDG pointers, the display, and the `Gio.FileMonitor`s.
+ * the XDG pointers, the display, and the `Gio.FileMonitor`s.
+ *
+ * ## App scope
+ *
+ * `createAppSkin({ configDir })` builds one instance per AGS app. Only the CSS
+ * pointer is app-scoped (`$XDG_CONFIG_HOME/<configDir>/skin.css`); the token
+ * map (`current/skin.json`) and both palette artifacts are shared. The
+ * exported `skin` singleton is exactly `createAppSkin({ configDir: "ags" })`,
+ * so the bar's existing imports and behavior are unchanged. The platform has
+ * no app list: `configDir` is always an input.
  *
  * ## One provider, USER priority, last installed
  *
@@ -43,12 +52,14 @@ import { agsRuntime } from "./astal";
 import type { ReadAccessor } from "../ports/reactive";
 import {
   createReplacingSkinCssSink,
-  createSkin,
   createSkinValue,
+  type Skin,
   type SkinCssHost,
+  type SkinCssSink,
   type SkinTokenValue,
 } from "../ports/skin";
 import type { CssProviderHandle } from "../ports/theme";
+import { createScopedSkin } from "./skin-scope";
 
 //: Runtime-owned pointer, mirrored here as a constant: config/ags/skin.css.
 export const SKIN_CSS_POINTER = "ags/skin.css";
@@ -169,22 +180,86 @@ function watchSkin(path: string, onChange: () => void): () => void {
   };
 }
 
-//: The app's one Skin; app.tsx calls `skin.apply()` in main().
-export const skin = createSkin({
-  skinCssPath: SKIN_CSS_PATH,
-  skinJsonPath: SKIN_JSON_PATH,
-  legacyCssPath: SKIN_LEGACY_CSS_PATH,
-  palettePath: SKIN_PALETTE_PATH,
-  sink: createReplacingSkinCssSink(gtkSkinHost),
-  readFile: readText,
-  watchFile: watchSkin,
-});
+/**
+ * Options for one app-scoped Skin. `configDir` is the consumer's AGS config
+ * directory (`ags` for the bar, `ags-clipboard`, `ags-notifications`, …).
+ * The host hooks are overridable for tests; production apps pass only
+ * `configDir`.
+ */
+export interface AppSkinOptions {
+  /** AGS config directory name, e.g. `ags` or `ags-clipboard`. */
+  configDir: string;
+  /** Override the provider sink (default: this app's replacing GTK sink). */
+  sink?: SkinCssSink;
+  /** Override the artifact reader (default: GLib). */
+  readFile?(path: string): string | null;
+  /** Override the artifact watcher (default: debounced Gio monitor). */
+  watchFile?(path: string, onChange: () => void): () => void;
+  /** Report a non-fatal load/parse/apply failure (default: `console.error`). */
+  onError?(error: unknown): void;
+}
 
 /**
- * Reactive rhythm/layout accessor. The returned function is accessor
- * compatible (callable, `.peek()`), so widgets read the token without
- * remounting when a skin reload swaps the provider. Missing or invalid tokens
- * return `fallback`.
+ * Build a Skin scoped to one AGS app's config directory.
+ *
+ * Resolves `$XDG_CONFIG_HOME/<configDir>/skin.css` and the shared
+ * `$XDG_STATE_HOME/dotfiles/current/skin.json` + palette artifacts. Each call
+ * owns its own provider sink and watchers, so two app instances never share
+ * display state.
+ *
+ * ```ts
+ * const skin = createAppSkin({ configDir: "ags-clipboard" })
+ * skin.apply()
+ * const width = createAppSkinValue(skin, "layout.panel-width", 360)
+ * ```
+ */
+export function createAppSkin(options: AppSkinOptions): Skin {
+  return createScopedSkin({
+    configDir: options.configDir,
+    configHome: GLib.get_user_config_dir(),
+    stateHome: GLib.get_user_state_dir(),
+    // A fresh sink per instance: the provider handle is instance state.
+    sink: options.sink ?? createReplacingSkinCssSink(gtkSkinHost),
+    readFile: options.readFile ?? readText,
+    watchFile: options.watchFile ?? watchSkin,
+    onError: options.onError,
+  });
+}
+
+//: The bar's Skin; app.tsx calls `skin.apply()` in main(). Same configDir the
+//: runtime uses for the bar (`ags`), so existing bar behavior is unchanged.
+export const skin = createAppSkin({ configDir: "ags" });
+
+/**
+ * Reactive rhythm/layout accessor bound to a specific app-scoped Skin. Use
+ * this in a non-bar app; the bar keeps the shorter `skinValue` over its
+ * default `skin` singleton.
+ *
+ * The returned function is accessor compatible (callable, `.peek()`), so
+ * widgets read the token without remounting when a skin reload swaps the
+ * provider. Missing or invalid tokens return `fallback`.
+ *
+ * ```ts
+ * const skin = createAppSkin({ configDir: "ags-clipboard" })
+ * skin.apply()
+ * const width = createAppSkinValue(skin, "layout.panel-width", 360)
+ * ```
+ */
+export function createAppSkinValue<T extends SkinTokenValue>(
+  source: Skin,
+  key: string,
+  fallback: T,
+): ReadAccessor<T> {
+  return createSkinValue(source, agsRuntime, key, fallback);
+}
+
+/**
+ * Reactive rhythm/layout accessor for the bar's default `skin` singleton. The
+ * returned function is accessor compatible (callable, `.peek()`), so widgets
+ * read the token without remounting when a skin reload swaps the provider.
+ * Missing or invalid tokens return `fallback`.
+ *
+ * Non-bar apps build their own instance and use `createAppSkinValue`.
  *
  * ```ts
  * const width = skinValue("panel-width", 360)
@@ -195,5 +270,5 @@ export function skinValue<T extends SkinTokenValue>(
   key: string,
   fallback: T,
 ): ReadAccessor<T> {
-  return createSkinValue(skin, agsRuntime, key, fallback);
+  return createAppSkinValue(skin, key, fallback);
 }

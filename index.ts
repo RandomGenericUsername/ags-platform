@@ -182,7 +182,10 @@ export {
   SKIN_JSON_POINTER,
   SKIN_LEGACY_CSS_PATH,
   SKIN_PALETTE_PATH,
+  createAppSkin,
+  createAppSkinValue,
   skin,
   skinValue,
 } from "./adapters/skin";
+export type { AppSkinOptions } from "./adapters/skin";
 export { theme } from "./adapters/theme";

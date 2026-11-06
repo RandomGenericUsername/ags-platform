@@ -22,6 +22,10 @@ import {
   type SkinTokens,
 } from "../ports/skin.ts"
 import { composeThemeCss } from "../ports/theme.ts"
+import {
+  createScopedSkin as createAppSkin,
+  resolveAppSkinPaths,
+} from "../adapters/skin-scope.ts"
 import { fakeRuntime } from "./_fake-runtime.ts"
 import { BUILTIN_SKINS, FLAT_SKIN, GLASS_SKIN, PAPER_SKIN } from "./fixtures/skins.ts"
 
@@ -178,6 +182,52 @@ function setup(
     onError: (error) => errors.push(error),
   })
   return { display, files, errors, skin }
+}
+
+const CONFIG_HOME = "/cfg"
+const STATE_HOME = "/state"
+
+/**
+ * The app-scoped factory core with a fake host. `createAppSkin` in the display
+ * adapter supplies the GLib/GTK defaults; this exercises the same path
+ * resolution and per-instance wiring without a desktop stack.
+ */
+function setupApp(
+  configDir = "ags-clipboard",
+  overrides: {
+    skinCss?: string | null
+    skinJson?: string | null
+    legacy?: string | null
+    palette?: string | null
+  } = {},
+) {
+  const paths = resolveAppSkinPaths(configDir, CONFIG_HOME, STATE_HOME)
+  const display = fakeDisplay()
+  const files = fakeFiles({
+    [paths.skinCssPath]: overrides.skinCss ?? SKIN_CSS_TEXT,
+    [paths.skinJsonPath]: overrides.skinJson ?? SKIN_JSON_TEXT,
+    [paths.legacyCssPath]: overrides.legacy ?? LEGACY_CSS,
+    [paths.palettePath]: overrides.palette ?? PALETTE_YAML,
+  })
+  for (const [path, value] of [
+    [paths.skinCssPath, overrides.skinCss],
+    [paths.skinJsonPath, overrides.skinJson],
+    [paths.legacyCssPath, overrides.legacy],
+    [paths.palettePath, overrides.palette],
+  ] as const) {
+    if (value === null) files.remove(path)
+  }
+  const errors: unknown[] = []
+  const skin = createAppSkin({
+    configDir,
+    configHome: CONFIG_HOME,
+    stateHome: STATE_HOME,
+    sink: createReplacingSkinCssSink(display.host),
+    readFile: files.readFile,
+    watchFile: files.watchFile,
+    onError: (error) => errors.push(error),
+  })
+  return { paths, display, files, errors, skin }
 }
 
 /** Build a resolved document with one token replaced. */
@@ -667,6 +717,162 @@ test("skin CSS validation rejects literal hex, transitions and structure/variant
   assert.doesNotThrow(() => validateSkinCss("/* #ff0000 is a note */ .x { padding: 4px; }"))
 })
 
+test("the app factory resolves per-configDir CSS and the shared token/palette artifacts", () => {
+  const clipboard = resolveAppSkinPaths("ags-clipboard", CONFIG_HOME, STATE_HOME)
+  const notifications = resolveAppSkinPaths("ags-notifications", CONFIG_HOME, STATE_HOME)
+
+  assert.deepEqual(clipboard, {
+    skinCssPath: "/cfg/ags-clipboard/skin.css",
+    skinJsonPath: "/state/dotfiles/current/skin.json",
+    legacyCssPath: "/cfg/ags/colors.css",
+    palettePath: "/state/dotfiles/current/colors.yaml",
+  })
+  assert.equal(
+    notifications.skinCssPath,
+    "/cfg/ags-notifications/skin.css",
+    "the CSS pointer is scoped by configDir",
+  )
+  assert.notEqual(clipboard.skinCssPath, notifications.skinCssPath)
+  assert.equal(
+    clipboard.skinJsonPath,
+    notifications.skinJsonPath,
+    "skin.json is one shared token map",
+  )
+  assert.equal(clipboard.legacyCssPath, notifications.legacyCssPath)
+  assert.equal(clipboard.palettePath, notifications.palettePath)
+
+  const app = setupApp("ags-clipboard")
+  app.skin.apply()
+  assert.deepEqual(
+    [...new Set(app.files.reads)].sort(),
+    [
+      app.paths.skinCssPath,
+      app.paths.skinJsonPath,
+      app.paths.legacyCssPath,
+      app.paths.palettePath,
+    ].sort(),
+  )
+  assert.equal(app.display.installed.length, 1)
+})
+
+test("two app-scoped instances own their providers and monitors", () => {
+  const paths = resolveAppSkinPaths("ags-clipboard", CONFIG_HOME, STATE_HOME)
+  const files = fakeFiles({
+    [paths.skinCssPath]: SKIN_CSS_TEXT,
+    [paths.skinJsonPath]: SKIN_JSON_TEXT,
+    [paths.legacyCssPath]: LEGACY_CSS,
+    [paths.palettePath]: PALETTE_YAML,
+  })
+  const displayA = fakeDisplay()
+  const displayB = fakeDisplay()
+  const errors: unknown[] = []
+  const options = {
+    configDir: "ags-clipboard",
+    configHome: CONFIG_HOME,
+    stateHome: STATE_HOME,
+    readFile: files.readFile,
+    watchFile: files.watchFile,
+    onError: (error: unknown) => errors.push(error),
+  }
+  const a = createAppSkin({
+    ...options,
+    sink: createReplacingSkinCssSink(displayA.host),
+  })
+  const b = createAppSkin({
+    ...options,
+    sink: createReplacingSkinCssSink(displayB.host),
+  })
+
+  a.apply()
+  b.apply()
+  assert.equal(displayA.installed.length, 1)
+  assert.equal(displayB.installed.length, 1)
+  assert.notEqual(displayA.host, displayB.host)
+
+  // Refreshing one instance never touches the other's provider.
+  a.apply()
+  assert.deepEqual(displayA.ops, ["add:1", "add:2", "remove:1"])
+  assert.deepEqual(displayB.ops, ["add:1"])
+
+  const seenA: SkinTokens[] = []
+  const seenB: SkinTokens[] = []
+  const unsubscribeA = a.subscribe((tokens) => seenA.push(tokens))
+  const unsubscribeB = b.subscribe((tokens) => seenB.push(tokens))
+  assert.equal(files.activeWatchers().length, 4, "two instances keep two monitors each")
+
+  unsubscribeA()
+  assert.equal(files.activeWatchers().length, 2, "the surviving instance keeps its monitors")
+
+  files.write(paths.skinCssPath, SKIN_CSS_V2)
+  files.emit(paths.skinCssPath)
+
+  assert.equal(errors.length, 0)
+  assert.deepEqual(seenA, [], "the released instance's listener never runs")
+  assert.equal(seenB.length, 1, "the live instance still reloads")
+  assert.match(displayB.css()[0], /padding: 10px;/)
+  assert.deepEqual(displayA.ops, ["add:1", "add:2", "remove:1"])
+
+  unsubscribeB()
+  assert.equal(files.activeWatchers().length, 0)
+})
+
+test("an app-scoped skin composes the palette block and installs at USER priority", () => {
+  const app = setupApp("ags-clipboard")
+
+  app.skin.apply()
+  const css = app.display.css()[0]
+
+  assert.equal(SKIN_PROVIDER_PRIORITY, 800)
+  assert.deepEqual(app.display.allPriorities, [800])
+  assert.ok(css.startsWith(LEGACY_CSS), "the legacy palette sheet is the prefix")
+  assert.match(css, /@define-color on_surface #e3e1e9;/)
+  assert.ok(
+    css.indexOf("@define-color on_surface") < css.indexOf("color: @on_surface"),
+    "the palette role block must precede the app's skin CSS",
+  )
+  assert.equal(skinTokenValue(app.skin.tokens(), "panel-width"), 312)
+})
+
+test("an app-scoped skin treats missing artifacts as a no-op", () => {
+  for (const missing of ["skinCss", "skinJson"] as const) {
+    const app = setupApp(
+      "ags-clipboard",
+      missing === "skinCss" ? { skinCss: null } : { skinJson: null },
+    )
+
+    app.skin.apply()
+
+    assert.equal(app.display.installed.length, 0)
+    assert.equal(app.display.ops.length, 0)
+    assert.equal(app.errors.length, 0)
+    assert.equal(readSkinToken(app.skin.tokens(), "panel-width", 300), 300)
+  }
+})
+
+test("the app-scoped accessor reads and updates its own instance", () => {
+  const app = setupApp("ags-clipboard")
+  const runtime = fakeRuntime()
+  const width = createSkinValue(app.skin, runtime, "layout.panel-width", 300)
+
+  app.skin.apply()
+  assert.equal(width(), 312)
+
+  const seen: SkinTokens[] = []
+  const unsubscribe = app.skin.subscribe((tokens) => seen.push(tokens))
+
+  app.files.write(
+    app.paths.skinJsonPath,
+    skinJson({
+      layout: { ...GLASS_SKIN.layout, "panel-width": 420 },
+    }),
+  )
+  app.files.emit(app.paths.skinJsonPath)
+
+  assert.equal(width(), 420)
+  assert.equal(seen.length, 1)
+  unsubscribe()
+})
+
 test("the adapter owns USER priority, module-scoped refs and one debounced monitor per artifact", () => {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
   const adapter = readFileSync(resolve(root, "adapters/skin.ts"), "utf8")
@@ -702,6 +908,22 @@ test("the adapter owns USER priority, module-scoped refs and one debounced monit
   // The two artifacts are constants, not ad-hoc paths in widgets.
   assert.match(adapter, /SKIN_CSS_POINTER = "ags\/skin\.css"/)
   assert.match(adapter, /SKIN_JSON_POINTER = "dotfiles\/current\/skin\.json"/)
+
+  // The bar singleton is just the app factory with configDir "ags"; non-bar
+  // apps build their own instance and use the app-scoped accessor.
+  assert.match(adapter, /export function createAppSkin\(options: AppSkinOptions\): Skin/)
+  assert.match(adapter, /export const skin = createAppSkin\(\{ configDir: "ags" \}\)/)
+  assert.match(
+    adapter,
+    /export function createAppSkinValue<T extends SkinTokenValue>\(\s*source: Skin,\s*key: string,\s*fallback: T,?\s*\): ReadAccessor<T>/,
+  )
+  assert.match(adapter, /createSkinValue\(source, agsRuntime, key, fallback\)/)
   assert.match(adapter, /skinValue<T extends SkinTokenValue>/)
-  assert.match(adapter, /createSkinValue\(skin, agsRuntime/)
+  assert.match(adapter, /createAppSkinValue\(skin, key, fallback\)/)
+
+  // The app path resolver is pure (no gi://), so node --test can exercise it.
+  const scope = readFileSync(resolve(root, "adapters/skin-scope.ts"), "utf8")
+  assert.doesNotMatch(scope, /\bfrom\s+["']gi:\/\//)
+  assert.match(scope, /skinCssPath: `\$\{configHome\}\/\$\{configDir\}\/skin\.css`/)
+  assert.match(scope, /skinJsonPath: `\$\{stateHome\}\/dotfiles\/current\/skin\.json`/)
 })
