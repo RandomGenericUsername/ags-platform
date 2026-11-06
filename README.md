@@ -18,11 +18,13 @@ notifications. The platform depends on `contracts`; it never depends on an app.
 
 ## Releases
 
-Current release: **`v0.8.0`** — app-scoped Skin instances: every AGS app reads
-its own `$XDG_CONFIG_HOME/<configDir>/skin.css` while sharing one token map.
-This follows the Skin port + adapter (composed USER-priority provider +
-reactive rhythm/layout tokens), the Theme provider role API (`palette()` +
-`subscribe()`) and the app manifest/palette-refresh/conformance helpers. See
+Current release: **`v0.9.0`** — unified Appearance v2 consumer: one provider,
+one monitor on `$XDG_STATE_HOME/dotfiles/current/appearance`, one whole-
+appearance apply and a refresh handler that always re-applies palette + skin.
+The v1 `theme`/`skin` exports remain as deprecated aliases for one release.
+This follows the app-scoped Skin factory, the Skin port + adapter, the Theme
+provider role API (`palette()` + `subscribe()`) and the app
+manifest/palette-refresh/conformance helpers. See
 [`CHANGELOG.md`](./CHANGELOG.md).
 
 The package stays `private` and `package.json` keeps the historical `0.0.0`;
@@ -85,7 +87,77 @@ App repos can use the conformance CLI in their own gate:
 node node_modules/ags-platform/conformance/check.ts .
 ```
 
-## Theme
+## Appearance (v2)
+
+> **One provider, one monitor, one apply.** Appearance replaces the split
+> Theme + Skin pair. The runtime publishes palette + skin + mode as one
+> immutable generation behind the single atomically repointed hop
+> `$XDG_STATE_HOME/dotfiles/current/appearance`. Every app installs ONE
+> composed `Gtk.CssProvider` at `GTK_STYLE_PROVIDER_PRIORITY_USER` = **800**,
+> last-installed, and re-reads the generation on that one pointer.
+
+```ts
+import {
+  appearance,                 // bar singleton: createAppearance({ configDir: "ags" })
+  createAppearance,
+  createAppearanceRefreshHandler,
+} from "ags-platform"
+
+const appAppearance = createAppearance({ configDir: "ags-clipboard" })
+appAppearance.apply()           // missing artifacts are a no-op
+
+const radius = appAppearance.value("surface.panel.radius", 12)
+const width  = appAppearance.value("layout.ags-clipboard.card-width", 360)
+// accessor: radius() / radius.peek(); reloads update the cell in place
+
+app.start({
+  requestHandler: createAppearanceRefreshHandler(appAppearance, () => {
+    refreshDerivedSurfaces()    // icons / caches only — no theme.apply()
+    return { status: "applied" }
+  }),
+})
+```
+
+- **Paths.** Watch ONLY
+  `$XDG_STATE_HOME/dotfiles/current/appearance` (`APPEARANCE_WATCH_PATH`,
+  `APPEARANCE_WATCH_POINTER = "dotfiles/current/appearance"`). Read
+  `$XDG_CONFIG_HOME/<configDir>/appearance.css` and
+  `current/appearance/tokens.json` after the event. The per-app CSS link is a
+  stable convenience link, never a watch path.
+- **Tokens.** `tokens.json` is the resolved v2 document: `version: 2` plus the
+  closed groups `surface`, `state`, `type`, `ink` and namespaced numeric
+  `layout.<app>`. Lengths are unitless numbers; paints are palette role
+  expressions only. `surface.panel.radius` and
+  `layout.<app>.<token>` are the app-facing reads. An optional manifest
+  `mode.dark`/`mode.light` override replaces a complete group as a whole and
+  is validated by the same parser.
+- **One apply per generation.** The composed sheet is applied VERBATIM. The
+  core coalesces identical CSS + token content, so the atomic repoint plus
+  convenience-link creation produces one provider swap; the 50 ms debounce
+  collapses the filesystem burst. Add-before-remove keeps a provider live on
+  every swap; the app stylesheet and GTK theme are never touched.
+- **Refresh.** `createAppearanceRefreshHandler(appearance, work?)` keeps the
+  existing `palette-refresh` transport but ALWAYS calls `appearance.apply()`
+  before app-owned derived work. It is idempotent by appearance hash (a
+  repeated hash does not rerun the work), does not advance the hash on
+  deferred/failed work, and emits exactly one JSON response.
+- **Failure.** Missing/malformed artifacts are a no-op with the previous
+  provider and token fallback; malformed content reports through `onError`.
+  Literal hex outside the palette block, `transition` and
+  `structure`/`variant` are rejected before GTK sees the sheet.
+- **Exports.** `createAppearance`, `appearance`, `createAppearanceValue`,
+  `appearanceValue`, `parseAppearanceJson`/`parseAppearanceTokens`,
+  `validateAppearanceCss`, `createReplacingAppearanceCssSink`,
+  `createAppearanceRefreshHandler`, the path/pointer constants and the
+  `Appearance*` types.
+
+The v1 `theme`, `skin` and `skinValue` exports below remain for one release as
+deprecated aliases; new app work uses Appearance.
+
+## Theme (deprecated alias)
+
+> **Deprecated in `v0.9.0`.** Use Appearance above. Theme remains exported for
+> one release so existing bar/widget imports keep working.
 
 One mechanism per app: one `Gio.FileMonitor`, one composed `Gtk.CssProvider`.
 
@@ -132,7 +204,11 @@ unsubscribe()                          // stops the monitor when the last listen
 - Phase B (kit + per-app role migration, including btop-theme-studio and icme)
   is a separate ticket; the legacy aliases are not removed here.
 
-## Skin
+## Skin (deprecated alias)
+
+> **Deprecated in `v0.9.0`.** Use Appearance above. The v1 skin artifacts,
+> watchers, `skin`/`skinValue` accessors and `createAppSkin` factory remain
+> exported for one release while the apps migrate.
 
 > **USER priority + one provider (read this first).** A skin is installed as
 > ONE composed `Gtk.CssProvider` at `GTK_STYLE_PROVIDER_PRIORITY_USER` = **800**.

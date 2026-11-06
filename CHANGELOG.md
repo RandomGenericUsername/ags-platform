@@ -9,6 +9,68 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-06
+
+REQ-017: unified Appearance consumer for contracts `v0.7.0`. One provider,
+one monitor on `current/appearance`, one whole-appearance apply. The v1
+`theme`/`skin`/`skinValue` exports remain as deprecated aliases for one
+release. Ticket: [`REQ-017`](./tickets/REQ-017-appearance-adapter/ticket.md).
+
+### Added
+
+- **`ports/appearance.ts`** (pure): the `appearance.v2` token
+  types/parser (`version: 2` + `surface`/`state`/`type`/`ink`/`layout`,
+  optional `mode.dark`/`mode.light` group overrides), `appearanceValue` /
+  `readAppearanceToken`, composed-CSS validation, a replacing sink at USER
+  priority (800) and the `createAppearance` core with `apply()`, `tokens()`,
+  `subscribe()` and `value(path, fallback)`.
+- **`adapters/appearance.ts`**: `createAppearance({ configDir })` watches ONLY
+  `$XDG_STATE_HOME/dotfiles/current/appearance` with
+  `Gio.FileMonitorFlags.WATCH_MOVES` and a 50 ms debounce, reads
+  `$XDG_CONFIG_HOME/<configDir>/appearance.css` +
+  `current/appearance/tokens.json`, and installs the composed sheet verbatim
+  as one last-installed provider. Monitors/providers are module-scoped.
+- **`createAppearanceRefreshHandler(appearance, work?)`**: keeps the
+  `palette-refresh` transport but always re-applies the whole appearance
+  before app-owned derived work. Idempotent by appearance hash, one JSON
+  response.
+- Pure `adapters/appearance-scope.ts` carries the per-`configDir` path
+  resolution so the stock `node --test` runner exercises it without GTK/GLib.
+- `index.ts` explicitly re-exports the Appearance port, adapter, refresh
+  helper and types.
+
+### Changed
+
+- One apply per generation: identical CSS + token content (the atomic repoint
+  plus convenience-link creation) is coalesced, so a generation never installs
+  twice. Missing artifacts are a no-op; malformed artifacts keep the previous
+  provider and report through `onError`.
+- `README.md` leads with Appearance; the Theme and Skin sections are marked
+  deprecated aliases.
+
+### Deprecated
+
+- `theme`, `skin`, `skinValue`, `createAppSkin` and `createAppSkinValue`
+  remain exported and behave unchanged for one release. New code uses
+  `createAppearance`/`appearance` and the v2 token paths.
+
+### Tests
+
+- `tests/appearance.test.ts` (14 tests) pins the watched
+  `current/appearance` path, one apply per rename generation, verbatim CSS at
+  800 with add-before-remove, v2 token parse/lookup/fallback, mode overrides,
+  the refresh contract, missing/malformed fallback and
+  structure/hex/transition rejection. The existing Skin suite (26 tests) is
+  untouched.
+
+### Release
+
+- Annotated tag `v0.9.0` on the ticket branch's closeout commit.
+- `package.json` remains `private` at `0.0.0`; the tag is the release identity.
+- Gates: `node --test tests/skin.test.ts tests/appearance.test.ts` (40 pass),
+  `make test` (111 pass), `make exports` (2 pass), `make typecheck-tests`
+  (0 errors) and the local `make typecheck` (0 in-tree errors) all green.
+
 ## [0.8.0] - 2026-11-05
 
 REQ-016: app-scoped Skin instances. Every AGS app reads its own
