@@ -27,6 +27,7 @@
 - [REQ-014-skin-port-adapter/ticket.md](./REQ-014-skin-port-adapter/ticket.md) — Skin port + adapter: composed skin CSS, reactive tokens, USER priority | `done` | tag: v0.6.0
 - [REQ-015-skin-token-validation/ticket.md](./REQ-015-skin-token-validation/ticket.md) — Skin token validation: per-token kinds for the frozen v0.6.0 vocabulary | `done` | tag: v0.7.0
 - [REQ-016-skin-app-scope/ticket.md](./REQ-016-skin-app-scope/ticket.md) — App-scoped Skin factory: per-configDir CSS and shared token map | `done` | tag: v0.8.0
+- [REQ-017-appearance-adapter/ticket.md](./REQ-017-appearance-adapter/ticket.md) — Unified Appearance consumer: one provider, one monitor, one apply | `in-progress` | worktree: .worktrees/REQ-017/ | branch: ticket/REQ-017-appearance-adapter
 
 ## Bugs
 
