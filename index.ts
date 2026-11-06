@@ -131,6 +131,35 @@ export type {
 
 export type { ReactiveRuntime, ReadAccessor, Setter } from "./ports/reactive";
 
+export {
+  SKIN_FORBIDDEN_TOKEN_GROUPS,
+  SKIN_PROVIDER_PRIORITY,
+  SKIN_TOKEN_GROUPS,
+  SKIN_VERSION,
+  SkinParseError,
+  composeSkinCss,
+  createReplacingSkinCssSink,
+  createSkin,
+  createSkinValue,
+  isRoleExpression,
+  parseSkinJson,
+  readSkinToken,
+  skinTokenValue,
+  validateRoleExpression,
+  validateSkinCss,
+} from "./ports/skin";
+export type {
+  Skin,
+  SkinCssHost,
+  SkinCssSink,
+  SkinListener,
+  SkinOptions,
+  SkinTokenGroup,
+  SkinTokenSource,
+  SkinTokens,
+  SkinTokenValue,
+} from "./ports/skin";
+
 // --- adapters: the host bindings and the bound singletons the bar uses ---
 
 export { agsRuntime } from "./adapters/astal";
@@ -146,4 +175,14 @@ export { registryProvider, resolveIcon } from "./adapters/icon";
 export { notifier } from "./adapters/notifier";
 export { idleScheduler, overlayLifecycle } from "./adapters/overlay-lifecycle";
 export { preferences } from "./adapters/preferences";
+export {
+  SKIN_CSS_PATH,
+  SKIN_CSS_POINTER,
+  SKIN_JSON_PATH,
+  SKIN_JSON_POINTER,
+  SKIN_LEGACY_CSS_PATH,
+  SKIN_PALETTE_PATH,
+  skin,
+  skinValue,
+} from "./adapters/skin";
 export { theme } from "./adapters/theme";
