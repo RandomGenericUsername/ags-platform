@@ -24,6 +24,7 @@
 - [REQ-011-overlay-lifecycle/ticket.md](./REQ-011-overlay-lifecycle/ticket.md) — Overlay lifecycle primitive (present-first, defer-heavy, skip-when-unchanged) | `in-progress` | links: none
 - [REQ-012-ags-app-manifest-helper/ticket.md](./REQ-012-ags-app-manifest-helper/ticket.md) — AGS app manifest helper, palette-refresh handler helper and template conformance | `done` | links: none
 - [REQ-013-theme-provider-roles/ticket.md](./REQ-013-theme-provider-roles/ticket.md) — Theme provider: `palette.v1` role API + change subscription | `done` | tag: v0.4.0 (Phase A); Phase B complete per Outcome
+- [REQ-014-skin-port-adapter/ticket.md](./REQ-014-skin-port-adapter/ticket.md) — Skin port + adapter: composed skin CSS, reactive tokens, USER priority | `in-progress` | links: none
 
 ## Bugs
 
