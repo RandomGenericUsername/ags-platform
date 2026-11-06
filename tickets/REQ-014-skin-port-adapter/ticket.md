@@ -2,7 +2,7 @@
 id: REQ-014
 title: "Skin port + adapter: composed skin CSS, reactive tokens, USER priority"
 kind: requirement
-status: in-progress
+status: done
 lane: 3
 links:
   openspec: none
@@ -63,27 +63,44 @@ the app stylesheet is never touched.
 
 ## Acceptance
 
-- [ ] `ports/skin.ts` is pure (no `gi://`, no `ags`, no I/O): token types,
+- [x] `ports/skin.ts` is pure (no `gi://`, no `ags`, no I/O): token types,
       `parseSkinJson`, contract validation, role-expression validation,
       `composeSkinCss`, replacing sink, `createSkin`, token accessor factory.
-- [ ] `adapters/skin.ts` resolves the two XDG pointers, reads/composes/applies,
+- [x] `adapters/skin.ts` resolves the two XDG pointers, reads/composes/applies,
       passes USER priority (800), replaces add-before-remove, holds monitors
       module-scoped, debounces 50 ms, reports through `onError`, and exposes
       `skinValue()`.
-- [ ] `index.ts` explicitly re-exports the new port + adapter symbols.
-- [ ] Pure tests prove palette composition, USER priority, add-before-remove,
+- [x] `index.ts` explicitly re-exports the new port + adapter symbols.
+- [x] Pure tests prove palette composition, USER priority, add-before-remove,
       GC-safe monitor lifetime/cleanup, reload on either file, missing-artifact
       no-op, malformed-skin retention, accessor fallback, and literal-hex /
       structure / transition rejection.
-- [ ] README + CHANGELOG document the USER-priority rule and one-provider
+- [x] README + CHANGELOG document the USER-priority rule and one-provider
       invariant prominently; INDEX updated.
-- [ ] `make test`, `make typecheck-tests` and local `make typecheck` green.
-- [ ] Annotated `v0.6.0` tag (next minor; existing tags untouched).
+- [x] `make test`, `make typecheck-tests` and local `make typecheck` green.
+- [x] Annotated `v0.6.0` tag (next minor; existing tags untouched).
 
 ## Evidence / verify
 
-Filled in the closeout commit with command → result. The implementation must
-show the pure suite and both gates green from this worktree.
+Run from `.worktrees/REQ-014/`, branch `ticket/REQ-014-skin-port-adapter`,
+base `31f0d38` (main).
+
+| Claim | Command | Result |
+| --- | --- | --- |
+| Skin suite | `node --test tests/skin.test.ts` | `16 pass / 0 fail`, exit 0 |
+| Full pure suite | `make test` | `87 pass / 0 fail`, exit 0 |
+| Package/export gate | `make exports` | `2 pass / 0 fail`, exit 0 |
+| Pure test typecheck | `make typecheck-tests` | `OK: 0 errors in the pure test suite` |
+| Local desktop typecheck | `ags types -d "$PWD" -u` then `make typecheck` | `OK: 0 errors in the ags-platform tree`; 7 tolerated `/usr/share/ags/js` errors |
+| Palette composition includes roles before skin | `node --test tests/skin.test.ts` | composed sheet starts with legacy `colors.css`, defines `on_surface`/`surface_container`, and `.skin-panel` follows the role block |
+| Known ink token resolves | `node --test tests/skin.test.ts` | `ink.text === "@on_surface"` and the composed sheet defines `@on_surface` before `color: @on_surface` |
+| USER priority forwarded | `node --test tests/skin.test.ts` | every `host.add` receives 800; `SKIN_PROVIDER_PRIORITY = 800`; no APPLICATION constant in the adapter |
+| Add-before-remove | `node --test tests/skin.test.ts` | 5 refreshes: `add:n+1 → remove:n`, exactly one provider installed, peak 2 |
+| GC-safe monitor lifetime | `node --test tests/skin.test.ts` | 2 active watchers shared by listeners, both released by the last unsubscribe, re-subscribe starts 2; adapter source has module-scoped `activeMonitors`/`activeProviders` sets |
+| Reload on either artifact | `node --test tests/skin.test.ts` | changing either `skin.css` or `skin.json` replaces the composed provider and notifies after install |
+| Missing / malformed policy | `node --test tests/skin.test.ts` | missing artifacts install nothing and report nothing; malformed JSON/CSS keeps the previous provider and reports a `SkinParseError` |
+| Accessor fallback | `node --test tests/skin.test.ts` | `panel-width`, `bt-list-spacing`, `chip-min` read/update in place; missing and type-invalid values use the fallback |
+| Literal-hex/structure/transition rejection | `node --test tests/skin.test.ts` | token and CSS validation reject `#hex`, `structure`/`variant`, `transition` and non-`@role` surface/ink values |
 
 Note: `scripts/worktree-guard.sh --check-clean` (the spelling in
 `tickets/LIFECYCLE.md`) prints usage and exits 2 because the script accepts
@@ -94,4 +111,13 @@ ticket records the discrepancy instead of editing the guard.
 
 | Commit | Subject |
 | --- | --- |
-| this planning commit | `tickets: file REQ-014 skin port + adapter` |
+| `582a108` | `tickets: file REQ-014 skin port + adapter` |
+| `3e5cea1` | `feat(REQ-014): add skin port and composed provider adapter` |
+| this closeout commit | `docs(REQ-014): document skin contract and record evidence` |
+
+## Status
+
+Complete on `ticket/REQ-014-skin-port-adapter`. The platform now exposes the
+pure Skin port, the composed USER-priority skin adapter and the reactive
+`skinValue()` accessor. The branch is tagged `v0.6.0`; existing tags were not
+moved. No app or runtime repo was modified.

@@ -18,10 +18,10 @@ notifications. The platform depends on `contracts`; it never depends on an app.
 
 ## Releases
 
-Current release: **`v0.4.0`** — the Theme provider role API
-(`palette()` + `subscribe()`), one composed CSS provider, and the app
-manifest/palette-refresh/conformance helpers from v0.3.0. See
-[`CHANGELOG.md`](./CHANGELOG.md).
+Current release: **`v0.6.0`** — the Skin port + adapter (composed USER-priority
+provider + reactive rhythm/layout tokens), following the Theme provider role API
+(`palette()` + `subscribe()`) and the app manifest/palette-refresh/conformance
+helpers. See [`CHANGELOG.md`](./CHANGELOG.md).
 
 The package stays `private` and `package.json` keeps the historical `0.0.0`;
 the annotated git tag is the release identity. `ags-apps` pins
@@ -129,6 +129,85 @@ unsubscribe()                          // stops the monitor when the last listen
   `Palette`/`Theme`/`ThemeOptions`/`CssSink`/`CssProvider*` types.
 - Phase B (kit + per-app role migration, including btop-theme-studio and icme)
   is a separate ticket; the legacy aliases are not removed here.
+
+## Skin
+
+> **USER priority + one provider (read this first).** A skin is installed as
+> ONE composed `Gtk.CssProvider` at `GTK_STYLE_PROVIDER_PRIORITY_USER` = **800**.
+> AGS installs `app.start({ css })` at USER too, so an APPLICATION-priority
+> (600) skin silently loses every conflict. On every swap the new provider is
+> added **before** the old one is removed, and the skin must be the
+> **last-installed provider** for it to win. The app stylesheet and GTK theme
+> are never touched. Provider and `Gio.FileMonitor` refs are module-scoped; a
+> monitor held only by a local is GC-collected and silently stops emitting.
+
+A skin is palette/ink mapping + paint + rhythm/density, with **no structure or
+variant tokens**. The runtime expands it; the platform only composes and
+applies the expanded bytes.
+
+- `$XDG_CONFIG_HOME/ags/skin.css` — runtime-expanded paint/token CSS.
+  `SKIN_CSS_PATH` points at it (`SKIN_CSS_POINTER = "ags/skin.css"`).
+- `$XDG_STATE_HOME/dotfiles/current/skin.json` — the resolved token map.
+  `SKIN_JSON_PATH` points at it (`SKIN_JSON_POINTER =
+  "dotfiles/current/skin.json"`).
+
+```json
+{
+  "version": "1",
+  "shape": { "radius": "12px" },
+  "surface": { "panel": "@surface_container" },
+  "ink": { "text": "@on_surface" },
+  "type": { "body-size": "13px" },
+  "rhythm": { "space-1": "6px" },
+  "layout": {
+    "panel-width": 360,
+    "bt-list-spacing": "6px",
+    "bar-row-height": 34,
+    "chip-min": 24
+  }
+}
+```
+
+The declared groups are `shape`, `surface`, `ink`, `type`, `rhythm`, `layout`.
+`surface.*` / `ink.*` values must be palette role expressions (`@role`);
+literal hex, `transition`, and `structure`/`variant` tokens/groups are rejected.
+Additive token names inside a declared group are accepted.
+
+```ts
+import { skin, skinValue } from "ags-platform"
+
+skin.apply() // no-op if either skin artifact is missing
+
+const unsubscribe = skin.subscribe((tokens) => {
+  // `tokens.values` is the resolved `group.name` map
+})
+const width = skinValue("panel-width", 360)  // Accessor: width() / width.peek()
+const spacing = skinValue("layout.bt-list-spacing", "6px")
+
+// later
+unsubscribe() // stops both artifact watchers when the last listener leaves
+```
+
+- **Composition:** the one provider's sheet is the runtime palette block
+  (`colors.css` verbatim + `palette.v1` role defines, exactly as `theme.ts`
+  composes it) followed by `skin.css`. The palette prefix is mandatory:
+  without it, `@role` references paint near-black.
+- **Reload:** one watcher per artifact, shared by all listeners, with the same
+  50 ms debounce as the Theme adapter. A change reads/composes the next sheet,
+  reapplies it, then notifies listeners. Missing artifacts are a no-op (the app
+  fallback CSS stays); a malformed skin keeps the previous provider and reports
+  through `onError`. The adapter never expands a skin.
+- **Tokens:** `skinValue(key, fallback)` returns an accessor-compatible cell
+  (callable + `.peek()`). Bare names such as `panel-width` resolve within the
+  declared group order; `group.name` is accepted too. Missing, removed or
+  type-invalid tokens yield the fallback, and reloads update the cell in place
+  so widgets do not remount.
+- **Exports:** `skin`, `skinValue`, `SKIN_CSS_PATH`, `SKIN_JSON_PATH`, the
+  pointer constants, `parseSkinJson`, `validateSkinCss`,
+  `validateRoleExpression`, `isRoleExpression`, `composeSkinCss`,
+  `createReplacingSkinCssSink`, `createSkin`, `createSkinValue`,
+  `readSkinToken`, `skinTokenValue`, `SkinParseError` and the
+  `Skin`/`SkinOptions`/`SkinTokens`/`SkinCss*` types.
 
 ## Gates
 

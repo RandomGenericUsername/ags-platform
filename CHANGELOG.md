@@ -9,6 +9,55 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-05
+
+REQ-014: the frozen **Skin Spec v1** lands as a pure port + display adapter.
+Ticket: [`REQ-014`](./tickets/REQ-014-skin-port-adapter/ticket.md).
+
+### Added
+
+- **Skin port** (`ags-platform`, `ports/skin.ts`, PURE):
+  `SkinTokens`, `SKIN_TOKEN_GROUPS` / `SKIN_VERSION`,
+  `parseSkinJson`, `validateSkinCss`, `validateRoleExpression` /
+  `isRoleExpression`, `composeSkinCss`,
+  `createReplacingSkinCssSink`, `createSkin`, `createSkinValue`,
+  `readSkinToken`, `skinTokenValue` and `SkinParseError`. The token map is the
+  resolved `shape` / `surface` / `ink` / `type` / `rhythm` / `layout` groups.
+  `surface.*` and `ink.*` must be palette role expressions (`@role`); literal
+  hex, `transition`, and `structure`/`variant` groups/tokens are rejected. A
+  skin never expands CSS or restructures a widget.
+- **Skin adapter** (`ags-platform`, `adapters/skin.ts`): resolves
+  `$XDG_CONFIG_HOME/ags/skin.css` and
+  `$XDG_STATE_HOME/dotfiles/current/skin.json` as constants, composes the
+  runtime palette block with the runtime-expanded skin CSS, and installs ONE
+  replacing provider at `GTK_STYLE_PROVIDER_PRIORITY_USER` (800). The new
+  provider is added before the previous one is removed, so the skin is the
+  last-installed provider on every swap. Providers and `Gio.FileMonitor`s are
+  retained in module-scoped sets (the GC trap), both artifacts are watched
+  with the Theme adapter's 50 ms debounce, and `skinValue(key, fallback)`
+  exposes an accessor-compatible reactive token cell.
+- **Failure policy:** missing skin artifacts are a no-op (the app fallback CSS
+  stays); a malformed skin keeps the previous provider and reports through
+  `onError`; the app stylesheet and GTK theme are never modified.
+- **Tests** (`tests/skin.test.ts`, 16 tests): palette-block composition and
+  known-ink resolution, explicit USER priority, add-before-remove replacement,
+  GC-safe watcher retention/cleanup, reload on either artifact, missing/
+  malformed fallbacks, accessor fallback/update, and literal-hex / structure /
+  transition rejection.
+
+### Changed
+
+- `index.ts` explicitly re-exports the Skin port, token/accessor helpers and
+  the `skin` / `skinValue` adapter bindings (no `export *`).
+
+### Release
+
+- Annotated tag `v0.6.0` on the ticket branch's closeout commit.
+- `package.json` remains `private` at `0.0.0`; the tag is the release identity.
+- Gates: `make test` (87 pass), `make exports` (2 pass),
+  `make typecheck-tests` (0 errors) and the local `make typecheck`
+  (0 in-tree errors; 7 tolerated AGS-runtime errors) all green.
+
 ## [0.4.0] - 2026-11-01
 
 REQ-013 Phase A: the Theme port becomes the palette provider — typed
