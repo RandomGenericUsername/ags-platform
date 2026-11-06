@@ -9,6 +9,56 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-05
+
+REQ-015: correct Skin token validation against the frozen contracts v0.6.0
+vocabulary. Ticket:
+[`REQ-015`](./tickets/REQ-015-skin-token-validation/ticket.md).
+
+### Fixed
+
+- **Real skins no longer fail validation.** `parseSkinJson` validated every
+  `surface.*` and `ink.*` value as a bare `@role`, so it rejected the resolved
+  built-ins: `alpha(@surface, 0.94)` paint,
+  `color-mix(in srgb, @outline 60%, transparent)`, `shadow: "none"`,
+  `blur: "none"`, `ink-dim: "alpha(@on_surface, 0.62)"` and `ink-over: "auto"`.
+  Values are now validated by their canonical per-token kind (number / paint /
+  shadow / blur / ink / auto / cell-pad / font).
+- **`shape.hairline-w`** is accepted as a unitless finite non-negative number.
+  The three built-in resolved fixtures (`glass`, `flat`, `paper`) now carry the
+  full 24-token vocabulary.
+- **Unknown tokens are rejected.** The canonical vocabulary is closed; an
+  unknown name such as `shape.radius` or an app-additive layout token no longer
+  passes as a generic number.
+- **Wrong value kinds are rejected:** numeric length strings (`"12px"` or
+  `"312"` where a number is required), a bare hex or arbitrary string as paint,
+  an out-of-range `alpha()`, a malformed `color-mix()`, bad `blur`, a bad
+  `cell-pad`, `ink-over: "manual"`, and a shadow containing hex.
+
+### Changed
+
+- `isRoleExpression` / `validateRoleExpression` now accept both `@role` and
+  `alpha(@role, 0..1)`, matching the ink grammar. All other exported Skin
+  symbols and their call signatures are unchanged.
+- `ports/skin.ts` and `SKIN_TOKEN_GROUPS` document the per-token v0.6.0
+  vocabulary and value grammar. README carries the real resolved `glass`
+  document instead of the old synthetic `"12px"` example.
+
+### Tests
+
+- `tests/skin.test.ts` grows to 21 tests, including hard-coded resolved
+  fixtures for all three built-ins (`tests/fixtures/skins.ts`, source manifest
+  names and contract tag recorded there; no cross-repo import) and negative
+  cases for every rejected value kind above.
+
+### Release
+
+- Annotated tag `v0.7.0` on the ticket branch's closeout commit.
+- `package.json` remains `private` at `0.0.0`; the tag is the release identity.
+- Gates: `make test` (92 pass), `make exports` (2 pass),
+  `make typecheck-tests` (0 errors) and the local `make typecheck`
+  (0 in-tree errors) all green.
+
 ## [0.6.0] - 2026-11-05
 
 REQ-014: the frozen **Skin Spec v1** lands as a pure port + display adapter.

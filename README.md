@@ -18,10 +18,12 @@ notifications. The platform depends on `contracts`; it never depends on an app.
 
 ## Releases
 
-Current release: **`v0.6.0`** — the Skin port + adapter (composed USER-priority
-provider + reactive rhythm/layout tokens), following the Theme provider role API
-(`palette()` + `subscribe()`) and the app manifest/palette-refresh/conformance
-helpers. See [`CHANGELOG.md`](./CHANGELOG.md).
+Current release: **`v0.7.0`** — per-token Skin validation for the frozen v0.6.0
+vocabulary (including `hairline-w`), following the Skin port + adapter
+(composed USER-priority provider + reactive rhythm/layout tokens), the Theme
+provider role API (`palette()` + `subscribe()`) and the app
+manifest/palette-refresh/conformance helpers. See
+[`CHANGELOG.md`](./CHANGELOG.md).
 
 The package stays `private` and `package.json` keeps the historical `0.0.0`;
 the annotated git tag is the release identity. `ags-apps` pins
@@ -153,25 +155,63 @@ applies the expanded bytes.
 
 ```json
 {
-  "version": "1",
-  "shape": { "radius": "12px" },
-  "surface": { "panel": "@surface_container" },
-  "ink": { "text": "@on_surface" },
-  "type": { "body-size": "13px" },
-  "rhythm": { "space-1": "6px" },
+  "version": 1,
+  "shape": {
+    "radius-panel": 12,
+    "radius-card": 9,
+    "radius-cell": 7,
+    "radius-pill": 20,
+    "border-w": 1.5,
+    "hairline-w": 1
+  },
+  "surface": {
+    "bg-panel": "alpha(@surface, 0.94)",
+    "bg-card": "alpha(@surface_container_high, 0.18)",
+    "border": "@primary",
+    "shadow": "none",
+    "blur": "none"
+  },
+  "ink": {
+    "ink": "@on_surface",
+    "ink-dim": "alpha(@on_surface, 0.62)",
+    "accent": "@primary",
+    "ink-over": "auto"
+  },
+  "type": {
+    "font-family": "inherit",
+    "title-size": 12.5,
+    "text-size": 13
+  },
+  "rhythm": { "gap": 8, "cell-pad": "8px 9px" },
   "layout": {
-    "panel-width": 360,
-    "bt-list-spacing": "6px",
-    "bar-row-height": 34,
-    "chip-min": 24
+    "panel-width": 312,
+    "bt-list-spacing": 4,
+    "bar-row-height": 0,
+    "chip-min": 0
   }
 }
 ```
 
-The declared groups are `shape`, `surface`, `ink`, `type`, `rhythm`, `layout`.
-`surface.*` / `ink.*` values must be palette role expressions (`@role`);
-literal hex, `transition`, and `structure`/`variant` tokens/groups are rejected.
-Additive token names inside a declared group are accepted.
+The declared groups are `shape`, `surface`, `ink`, `type`, `rhythm`, `layout`,
+and the vocabulary is the canonical 24-token set from contracts v0.6.0:
+
+- **numbers** (unitless, finite, `>= 0`): the four radii, `border-w`,
+  `hairline-w`, `gap`, `title-size`, `text-size` and the four layout tokens.
+  A length string such as `"12px"` is invalid; the expander adds `px`.
+- **paint** (`surface.bg-panel`, `bg-card`, `border`): `transparent`, `@role`,
+  `alpha(@role, 0..1)` or
+  `color-mix(in srgb, @role <pct>%, transparent|@role)`.
+- **shadow**: a non-empty CSS shadow string; `none` and
+  `rgba(0,0,0,0.22)` are legal, hex is not. **blur**: `none` or
+  `blur(<n>px)` with an optional `saturate(<n>)`.
+- **ink**: `ink`, `ink-dim` and `accent` are `@role` or
+  `alpha(@role, 0..1)`; `ink-over` is exactly `"auto"`.
+- **type**: `font-family` is a non-empty string (`"inherit"` is legal).
+- **rhythm**: `cell-pad` is exactly `"<n>px <n>px"`; `gap` is a number.
+
+Token names are validated per token, not generically per group: unknown tokens
+are rejected (the vocabulary is closed), as are literal hex, `transition`,
+`structure`/`variant`/`order`/`presence` names, and unknown groups.
 
 ```ts
 import { skin, skinValue } from "ags-platform"
