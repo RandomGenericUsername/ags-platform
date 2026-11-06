@@ -52,20 +52,20 @@ cd /home/inumaki/Development/dotfiles/contracts &&
 
 ## Acceptance
 
-- [ ] `adapters/skin.ts` exports `createAppSkin` and `createAppSkinValue`;
+- [x] `adapters/skin.ts` exports `createAppSkin` and `createAppSkinValue`;
       `skin` is `createAppSkin({ configDir: "ags" })` and `skinValue` keeps its
       existing signature.
-- [ ] App path resolution is pure/testable: per-`configDir` CSS, one shared
+- [x] App path resolution is pure/testable: per-`configDir` CSS, one shared
       `skin.json`, unchanged palette paths.
-- [ ] `index.ts` explicitly re-exports `createAppSkin`, `createAppSkinValue` and
+- [x] `index.ts` explicitly re-exports `createAppSkin`, `createAppSkinValue` and
       `AppSkinOptions`.
-- [ ] Tests prove per-configDir resolution, instance isolation (providers and
+- [x] Tests prove per-configDir resolution, instance isolation (providers and
       monitors), the `ags` default, missing-artifact no-op, USER priority (800)
       and palette-block composition.
-- [ ] README documents the app pattern; CHANGELOG records the release.
-- [ ] `node --test tests/skin.test.ts`, `make test`, `make exports`,
+- [x] README documents the app pattern; CHANGELOG records the release.
+- [x] `node --test tests/skin.test.ts`, `make test`, `make exports`,
       `make typecheck-tests` and local `make typecheck` are green.
-- [ ] Annotated `v0.8.0` tag on the closeout commit; branch merged
+- [x] Annotated `v0.8.0` tag on the closeout commit; branch merged
       fast-forward to `main`; existing tags untouched.
 
 ## Evidence / verify
@@ -75,19 +75,43 @@ Run from `.worktrees/REQ-016/`, branch `ticket/REQ-016-skin-app-scope`, base
 
 | Claim | Command | Result |
 | --- | --- | --- |
-| Pending | Pending | Pending |
+| Skin suite | `node --test tests/skin.test.ts` | `26 pass / 0 fail`, exit 0 |
+| Full pure suite | `make test` | `97 pass / 0 fail`, exit 0 |
+| Package/export gate | `make exports` | `2 pass / 0 fail`, exit 0 |
+| Pure test typecheck | `make typecheck-tests` | `OK: 0 errors in the pure test suite` |
+| Local desktop typecheck | `ags types -d "$PWD" -u` then `make typecheck` | `OK: 0 errors in the ags-platform tree`; 7 tolerated `/usr/share/ags/js` errors |
+| Per-configDir paths | `node --test tests/skin.test.ts` | `ags-clipboard` → `/cfg/ags-clipboard/skin.css`, `ags-notifications` → `/cfg/ags-notifications/skin.css`; both keep `/state/dotfiles/current/skin.json` + shared palette paths |
+| Instance isolation | `node --test tests/skin.test.ts` | Two instances keep separate displays and 4 active watchers; releasing one leaves the other's 2 watchers live and reloading |
+| Bar default | `node --test tests/skin.test.ts` | Adapter source pins `export const skin = createAppSkin({ configDir: "ags" })` |
+| Missing artifacts | `node --test tests/skin.test.ts` | Missing `skin.css` or `skin.json` installs 0 providers, reports 0 errors, keeps the fallback |
+| USER priority + palette composition | `node --test tests/skin.test.ts` | App-scoped add receives 800; composed CSS starts with `colors.css`, defines `on_surface`, then applies the skin rules |
+| App accessor | `node --test tests/skin.test.ts` | `createSkinValue` against the app instance reads 312 then updates to 420 on a `skin.json` reload |
+| Explicit index export | `grep -n "createAppSkin" index.ts` | `createAppSkin` / `createAppSkinValue` in the adapter re-export block and `AppSkinOptions` type export |
+| Existing tags untouched | `git tag -l` | still `v0.1.0`…`v0.7.0`; new tag is `v0.8.0` |
 
 ### Deviations / notes
 
-Pending closeout.
+- The GI-free factory core lives in `adapters/skin-scope.ts` so the stock
+  `node --test` suite can exercise path resolution and instance isolation
+  without a desktop stack. `adapters/skin.ts` supplies the GLib dirs and the
+  GTK sink; the public API remains `createAppSkin` there.
+- `createAppSkin` also accepts `sink`/`readFile`/`watchFile`/`onError`
+  overrides (test seams). Production apps pass only `configDir`.
+- No consumer app repository was modified; adopting the factory in
+  clipboard/notifications/etc. is a separate consumer change.
 
 ## Commits
 
 | Commit | Subject |
 | --- | --- |
-| this commit | `tickets: file REQ-016 app-scoped skin factory` |
+| `edb5dd8` | `tickets: file REQ-016 app-scoped skin factory` |
+| `232c391` | `feat(REQ-016): scope skin by app configDir` |
+| `ab804dc` | `docs(REQ-016): document app-scoped skin instances` |
+| this closeout commit | `docs(REQ-016): record app-scoped skin evidence` |
 
 ## Status
 
-In progress on `ticket/REQ-016-skin-app-scope`, worktree `.worktrees/REQ-016/`,
-base `c122026` (main, `v0.7.0`).
+Complete on `ticket/REQ-016-skin-app-scope`; worktree `.worktrees/REQ-016/`,
+base `c122026` (main, `v0.7.0`). The branch is tagged `v0.8.0` and merged
+fast-forward to `main`; existing tags were not moved. No other repository was
+modified.

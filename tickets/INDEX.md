@@ -26,7 +26,7 @@
 - [REQ-013-theme-provider-roles/ticket.md](./REQ-013-theme-provider-roles/ticket.md) — Theme provider: `palette.v1` role API + change subscription | `done` | tag: v0.4.0 (Phase A); Phase B complete per Outcome
 - [REQ-014-skin-port-adapter/ticket.md](./REQ-014-skin-port-adapter/ticket.md) — Skin port + adapter: composed skin CSS, reactive tokens, USER priority | `done` | tag: v0.6.0
 - [REQ-015-skin-token-validation/ticket.md](./REQ-015-skin-token-validation/ticket.md) — Skin token validation: per-token kinds for the frozen v0.6.0 vocabulary | `done` | tag: v0.7.0
-- [REQ-016-skin-app-scope/ticket.md](./REQ-016-skin-app-scope/ticket.md) — App-scoped Skin factory: per-configDir CSS and shared token map | `in-progress` | links: none
+- [REQ-016-skin-app-scope/ticket.md](./REQ-016-skin-app-scope/ticket.md) — App-scoped Skin factory: per-configDir CSS and shared token map | `done` | tag: v0.8.0
 
 ## Bugs
 
