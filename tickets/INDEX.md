@@ -25,6 +25,7 @@
 - [REQ-012-ags-app-manifest-helper/ticket.md](./REQ-012-ags-app-manifest-helper/ticket.md) — AGS app manifest helper, palette-refresh handler helper and template conformance | `done` | links: none
 - [REQ-013-theme-provider-roles/ticket.md](./REQ-013-theme-provider-roles/ticket.md) — Theme provider: `palette.v1` role API + change subscription | `done` | tag: v0.4.0 (Phase A); Phase B complete per Outcome
 - [REQ-014-skin-port-adapter/ticket.md](./REQ-014-skin-port-adapter/ticket.md) — Skin port + adapter: composed skin CSS, reactive tokens, USER priority | `done` | tag: v0.6.0
+- [REQ-015-skin-token-validation/ticket.md](./REQ-015-skin-token-validation/ticket.md) — Skin token validation: per-token kinds for the frozen v0.6.0 vocabulary | `in-progress` | links: none
 
 ## Bugs
 
