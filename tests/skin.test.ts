@@ -23,6 +23,7 @@ import {
 } from "../ports/skin.ts"
 import { composeThemeCss } from "../ports/theme.ts"
 import { fakeRuntime } from "./_fake-runtime.ts"
+import { BUILTIN_SKINS, FLAT_SKIN, GLASS_SKIN, PAPER_SKIN } from "./fixtures/skins.ts"
 
 const SKIN_CSS = "/cfg/ags/skin.css"
 const SKIN_JSON = "/state/dotfiles/current/skin.json"
@@ -47,7 +48,7 @@ const PALETTE_YAML = [
 
 const SKIN_CSS_TEXT = [
   ".skin-panel {",
-  "  background: @surface_container;",
+  "  background: alpha(@surface, 0.94);",
   "  color: @on_surface;",
   "  padding: 6px;",
   "}",
@@ -56,32 +57,18 @@ const SKIN_CSS_TEXT = [
 
 const SKIN_CSS_V2 = [
   ".skin-panel {",
-  "  background: @surface_container;",
+  "  background: alpha(@surface, 0.94);",
   "  color: @on_surface;",
   "  padding: 10px;",
   "}",
   "",
 ].join("\n")
 
-function skinJson(overrides: Record<string, unknown> = {}): string {
-  return JSON.stringify({
-    version: "1",
-    shape: { radius: "12px" },
-    surface: { panel: "@surface_container" },
-    ink: { text: "@on_surface" },
-    type: { "body-size": "13px" },
-    rhythm: { "space-1": "6px" },
-    layout: {
-      "panel-width": 360,
-      "bt-list-spacing": "6px",
-      "bar-row-height": 34,
-      "chip-min": 24,
-    },
-    ...overrides,
-  })
-}
+const SKIN_JSON_TEXT = JSON.stringify(GLASS_SKIN)
 
-const SKIN_JSON_TEXT = skinJson()
+function skinJson(overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({ ...GLASS_SKIN, ...overrides })
+}
 
 /**
  * A fake display that records the CSS text AND the priority the sink passed.
@@ -193,6 +180,50 @@ function setup(
   return { display, files, errors, skin }
 }
 
+/** Build a resolved document with one token replaced. */
+function mutated(
+  group: keyof typeof GLASS_SKIN,
+  name: string,
+  value: unknown,
+): string {
+  const base = GLASS_SKIN as unknown as Record<string, Record<string, unknown>>
+  return JSON.stringify({ ...base, [group]: { ...base[group], [name]: value } })
+}
+
+test("the three built-in resolved fixtures carry the 24-token v0.6.0 vocabulary and parse", () => {
+  assert.deepEqual(
+    [...SKIN_TOKEN_GROUPS].sort(),
+    ["shape", "surface", "ink", "type", "rhythm", "layout"].sort(),
+  )
+
+  for (const [name, fixture] of Object.entries(BUILTIN_SKINS)) {
+    const tokens = parseSkinJson(JSON.stringify(fixture), `${name}.json`)
+    assert.equal(Object.keys(tokens.values).length, 24, `${name} must resolve 24 tokens`)
+    assert.equal(tokens.version, "1")
+    assert.equal(typeof tokens.values["shape.hairline-w"], "number")
+    assert.equal(typeof tokens.values["shape.border-w"], "number")
+    assert.equal(tokens.values["ink.ink-over"], "auto")
+    assert.equal(typeof tokens.values["rhythm.cell-pad"], "string")
+    assert.equal(typeof tokens.values["type.font-family"], "string")
+  }
+
+  // The real glass values that the old group rule rejected.
+  const glass = parseSkinJson(JSON.stringify(GLASS_SKIN))
+  assert.equal(glass.values["surface.bg-panel"], "alpha(@surface, 0.94)")
+  assert.equal(glass.values["surface.shadow"], "none")
+  assert.equal(glass.values["surface.blur"], "none")
+  assert.equal(glass.values["ink.ink-dim"], "alpha(@on_surface, 0.62)")
+  assert.equal(glass.values["ink.ink-over"], "auto")
+  assert.equal(glass.values["shape.hairline-w"], 1)
+
+  // flat and paper are real resolved shapes too, not a synthetic subset.
+  assert.equal(parseSkinJson(JSON.stringify(FLAT_SKIN)).values["surface.bg-panel"], "transparent")
+  assert.equal(
+    parseSkinJson(JSON.stringify(PAPER_SKIN)).values["surface.shadow"],
+    "0 10px 28px rgba(0,0,0,0.22)",
+  )
+})
+
 test("the composed provider contains the palette block before the skin CSS", () => {
   const { display, skin } = setup()
 
@@ -206,7 +237,7 @@ test("the composed provider contains the palette block before the skin CSS", () 
 
   // The known ink token is a role expression and the role is defined BEFORE
   // the skin uses it, so it resolves instead of painting near-black.
-  assert.equal(skinTokenValue(skin.tokens(), "ink.text"), "@on_surface")
+  assert.equal(skinTokenValue(skin.tokens(), "ink.ink"), "@on_surface")
   assert.ok(
     css.indexOf("@define-color on_surface") < css.indexOf("color: @on_surface"),
     "the palette role block must precede the skin CSS",
@@ -321,14 +352,17 @@ test("reloads the composed sheet when either skin artifact changes", () => {
 
   files.write(
     SKIN_JSON,
-    skinJson({ layout: { "panel-width": 420, "bt-list-spacing": "9px" } }),
+    skinJson({
+      layout: { ...GLASS_SKIN.layout, "panel-width": 420 },
+      rhythm: { ...GLASS_SKIN.rhythm, "cell-pad": "9px 10px" },
+    }),
   )
   files.emit(SKIN_JSON)
 
   assert.equal(errors.length, 0)
   assert.equal(seen.length, 2)
   assert.equal(skinTokenValue(skin.tokens(), "panel-width"), 420)
-  assert.equal(skinTokenValue(skin.tokens(), "bt-list-spacing"), "9px")
+  assert.equal(skinTokenValue(skin.tokens(), "cell-pad"), "9px 10px")
   assert.match(display.css()[0], /padding: 10px;/, "the last skin.css is retained")
 
   unsubscribe()
@@ -363,7 +397,7 @@ test("removing a previously loaded artifact keeps the previous provider", () => 
   assert.deepEqual(display.ops, ["add:1"])
   assert.equal(errors.length, 0)
   assert.deepEqual(seen, [])
-  assert.equal(skinTokenValue(skin.tokens(), "panel-width"), 360, "previous tokens are retained")
+  assert.equal(skinTokenValue(skin.tokens(), "panel-width"), 312, "previous tokens are retained")
 
   unsubscribe()
 })
@@ -383,7 +417,7 @@ test("a malformed refresh keeps the previous provider and reports the error", ()
   assert.deepEqual(display.ops, ["add:1"], "no provider is replaced on a failed reload")
   assert.equal(display.installed.length, 1)
   assert.deepEqual(seen, [])
-  assert.equal(skinTokenValue(skin.tokens(), "panel-width"), 360)
+  assert.equal(skinTokenValue(skin.tokens(), "panel-width"), 312)
 
   // Restore the token map, then prove a literal hex in skin CSS is likewise
   // rejected before it reaches GTK.
@@ -426,42 +460,139 @@ test("the token accessor falls back for missing and invalid tokens and updates i
   }
 
   const width = createSkinValue(source, runtime, "panel-width", 300)
-  const spacing = createSkinValue(source, runtime, "bt-list-spacing", "4px")
+  const spacing = createSkinValue(source, runtime, "cell-pad", "4px 6px")
   const missing = createSkinValue(source, runtime, "chip-min", 12)
 
-  assert.equal(width(), 360, "a bare name resolves its layout token")
-  assert.equal(width.peek(), 360)
-  assert.equal(spacing(), "6px")
-  assert.equal(missing(), 24)
+  assert.equal(width(), 312, "a bare name resolves its layout token")
+  assert.equal(width.peek(), 312)
+  assert.equal(spacing(), "8px 9px")
+  assert.equal(missing(), 0)
 
   current = parseSkinJson(
-    skinJson({ layout: { "panel-width": "wide", "bt-list-spacing": "8px" } }),
+    skinJson({
+      layout: { ...GLASS_SKIN.layout, "panel-width": 420 },
+      rhythm: { ...GLASS_SKIN.rhythm, "cell-pad": "8px 10px" },
+    }),
   )
+  emit(current)
+
+  assert.equal(width(), 420, "a reload updates the accessor in place")
+  assert.equal(spacing(), "8px 10px")
+
+  // The accessor still defends against type-invalid maps even though the
+  // parser no longer produces them.
+  current = {
+    version: "1",
+    values: { "layout.panel-width": "wide", "rhythm.cell-pad": 8 },
+  }
   emit(current)
 
   assert.equal(width(), 300, "a non-numeric value falls back for a numeric accessor")
-  assert.equal(spacing(), "8px", "a reload updates the accessor in place")
+  assert.equal(spacing(), "4px 6px", "a numeric value falls back for a string accessor")
   assert.equal(missing(), 12, "a removed token falls back")
-
-  current = parseSkinJson(skinJson({ layout: { "bt-list-spacing": 8 } }))
-  emit(current)
-
-  assert.equal(spacing(), "4px", "a numeric value falls back for a string accessor")
   assert.equal(readSkinToken(current, "layout.panel-width", 1), 1)
-  assert.equal(skinTokenValue(current, "layout.bt-list-spacing"), 8)
+  assert.equal(skinTokenValue(current, "rhythm.cell-pad"), 8)
 })
 
-test("skin parsing rejects literal hex, structure/variant and transition tokens", () => {
-  assert.throws(
-    () => parseSkinJson(JSON.stringify({ surface: { panel: "#123456" } })),
-    (error: unknown) => {
-      assert.ok(error instanceof SkinParseError)
-      assert.match(String(error), /literal hex/)
-      return true
-    },
+test("numeric tokens are unitless JSON numbers, never length or numeric strings", () => {
+  for (const [group, name] of [
+    ["shape", "radius-panel"],
+    ["shape", "hairline-w"],
+    ["rhythm", "gap"],
+    ["type", "title-size"],
+    ["layout", "panel-width"],
+  ] as const) {
+    assert.throws(() => parseSkinJson(mutated(group, name, "12px")), /unitless/)
+  }
+
+  assert.throws(() => parseSkinJson(mutated("layout", "panel-width", "312")), /unitless/)
+  assert.throws(() => parseSkinJson(mutated("shape", "radius-card", -1)), /non-negative/)
+  assert.throws(() => parseSkinJson(mutated("shape", "radius-cell", true)), /unitless/)
+
+  // A known numeric token accepted as a JSON number, including a decimal.
+  const tokens = parseSkinJson(mutated("shape", "hairline-w", 1.25))
+  assert.equal(tokens.values["shape.hairline-w"], 1.25)
+})
+
+test("surface paint accepts the real role grammar and rejects hex or arbitrary strings", () => {
+  // The four canonical atoms.
+  assert.doesNotThrow(() => parseSkinJson(mutated("surface", "bg-panel", "transparent")))
+  assert.doesNotThrow(() => parseSkinJson(mutated("surface", "bg-panel", "@surface")))
+  assert.doesNotThrow(() => parseSkinJson(mutated("surface", "bg-panel", "alpha(@surface, 0.94)")))
+  assert.doesNotThrow(() =>
+    parseSkinJson(mutated("surface", "border", "color-mix(in srgb, @outline 60%, transparent)")),
+  )
+
+  assert.throws(() => parseSkinJson(mutated("surface", "bg-panel", "#ff0000")), /literal hex/)
+  assert.throws(() => parseSkinJson(mutated("surface", "bg-panel", "red")), /invalid paint/)
+  assert.throws(() => parseSkinJson(mutated("surface", "bg-panel", "alpha(@surface, 1.2)")), /invalid paint/)
+  assert.throws(() =>
+    parseSkinJson(mutated("surface", "border", "color-mix(in srgb, @outline 120%, transparent)")),
+    /invalid paint/,
+  )
+  assert.throws(() =>
+    parseSkinJson(mutated("surface", "bg-card", "alpha(@surface, 0.5) transition")),
+    /transition/,
+  )
+})
+
+test("shadow and blur use their own grammars", () => {
+  // Real paper shadow and the glass/flat none values parse from the fixtures.
+  assert.doesNotThrow(() => parseSkinJson(mutated("surface", "shadow", "none")))
+  assert.doesNotThrow(() =>
+    parseSkinJson(mutated("surface", "shadow", "0 10px 28px rgba(0,0,0,0.22)")),
+  )
+  assert.doesNotThrow(() =>
+    parseSkinJson(mutated("surface", "shadow", "0 8px 24px alpha(@shadow, 0.35)")),
+  )
+  assert.throws(() => parseSkinJson(mutated("surface", "shadow", "0 1px 2px #000")), /literal hex/)
+  assert.throws(() => parseSkinJson(mutated("surface", "shadow", "")), /empty/)
+
+  assert.doesNotThrow(() => parseSkinJson(mutated("surface", "blur", "none")))
+  assert.doesNotThrow(() => parseSkinJson(mutated("surface", "blur", "blur(18px)")))
+  assert.doesNotThrow(() =>
+    parseSkinJson(mutated("surface", "blur", "blur(18px) saturate(1.2)")),
   )
   assert.throws(
-    () => parseSkinJson(JSON.stringify({ structure: { gap: "4px" } })),
+    () => parseSkinJson(mutated("surface", "blur", "blur(18px) saturate(120%)")),
+    /invalid blur/,
+  )
+  assert.throws(() => parseSkinJson(mutated("surface", "blur", "blur(18)")), /invalid blur/)
+})
+
+test("ink expressions accept roles and alpha; ink-over is exactly auto", () => {
+  assert.doesNotThrow(() => parseSkinJson(mutated("ink", "ink", "@on_surface")))
+  assert.doesNotThrow(() =>
+    parseSkinJson(mutated("ink", "ink-dim", "alpha(@on_surface, 0.62)")),
+  )
+  assert.doesNotThrow(() => parseSkinJson(mutated("ink", "accent", "alpha(@primary, 1)")))
+
+  assert.throws(() => parseSkinJson(mutated("ink", "ink-over", "manual")), /only legal value is "auto"/)
+  assert.throws(() => parseSkinJson(mutated("ink", "ink", "red")), /invalid role expression/)
+  assert.throws(() => parseSkinJson(mutated("ink", "ink-dim", "#ffffff")), /literal hex/)
+})
+
+test("cell-pad is exactly '<n>px <n>px' and font-family is a non-empty string", () => {
+  assert.doesNotThrow(() => parseSkinJson(mutated("rhythm", "cell-pad", "8px 9px")))
+  assert.doesNotThrow(() => parseSkinJson(mutated("rhythm", "cell-pad", "0px 0px")))
+  assert.throws(() => parseSkinJson(mutated("rhythm", "cell-pad", "8px")), /invalid cell-pad/)
+  assert.throws(
+    () => parseSkinJson(mutated("rhythm", "cell-pad", "8px 9px 10px")),
+    /invalid cell-pad/,
+  )
+  assert.throws(() => parseSkinJson(mutated("rhythm", "cell-pad", "8 px 9px")), /invalid cell-pad/)
+
+  assert.doesNotThrow(() => parseSkinJson(mutated("type", "font-family", "inherit")))
+  assert.doesNotThrow(() =>
+    parseSkinJson(mutated("type", "font-family", 'system-ui, "Cantarell", sans-serif')),
+  )
+  assert.throws(() => parseSkinJson(mutated("type", "font-family", " ")), /empty/)
+  assert.throws(() => parseSkinJson(mutated("type", "font-family", "Inter #fff")), /literal hex/)
+})
+
+test("skin parsing rejects structure/variant/transition names and unknown tokens", () => {
+  assert.throws(
+    () => parseSkinJson(JSON.stringify({ structure: { gap: 4 } })),
     /structure\/variant groups/,
   )
   assert.throws(
@@ -469,44 +600,54 @@ test("skin parsing rejects literal hex, structure/variant and transition tokens"
     /structure\/variant groups/,
   )
   assert.throws(
-    () => parseSkinJson(JSON.stringify({ layout: { variant: "dense" } })),
+    () => parseSkinJson(mutated("layout", "variant", "dense")),
     /structure\/variant tokens/,
   )
   assert.throws(
-    () => parseSkinJson(JSON.stringify({ rhythm: { "transition-speed": "fast" } })),
+    () => parseSkinJson(mutated("surface", "bg-panel-variant", "@surface")),
+    /structure\/variant tokens/,
+  )
+  assert.throws(
+    () => parseSkinJson(mutated("rhythm", "transition-speed", "fast")),
     /transition tokens/,
   )
   assert.throws(
-    () => parseSkinJson(JSON.stringify({ type: { body: "#fff" } })),
-    /literal hex/,
+    () => parseSkinJson(mutated("shape", "radius", 4)),
+    /unknown shape token/,
+  )
+  assert.throws(
+    () => parseSkinJson(mutated("layout", "app-additive-token", 4)),
+    /unknown layout token/,
   )
   assert.throws(
     () => parseSkinJson(JSON.stringify({ "bad group": { a: 1 } })),
     /unknown token group/,
   )
   assert.throws(
-    () => parseSkinJson(JSON.stringify({ shape: { Radius: "4px" } })),
+    () => parseSkinJson(mutated("shape", "Radius", 4)),
     /kebab-case/,
-  )
-  assert.throws(
-    () => parseSkinJson(JSON.stringify({ shape: { radius: -1 } })),
-    /non-negative/,
   )
   assert.throws(() => parseSkinJson("{"), /invalid JSON/)
   assert.throws(() => parseSkinJson("{}"), /no skin tokens/)
 })
 
-test("role expressions reject literal hex and non-role values", () => {
+test("role expressions accept bare and alpha forms and reject literal hex and non-role values", () => {
   assert.equal(isRoleExpression("@on_surface"), true)
   assert.equal(isRoleExpression(" @on_backdrop "), true)
+  assert.equal(isRoleExpression("alpha(@on_surface, 0.62)"), true)
+  assert.equal(isRoleExpression("alpha(@on_surface, 1.2)"), false)
   assert.equal(isRoleExpression("#e3e1e9"), false)
   assert.equal(isRoleExpression("on_surface"), false)
   assert.equal(validateRoleExpression("@primary", "skin.json"), "@primary")
+  assert.equal(
+    validateRoleExpression("alpha(@primary, 0.5)", "skin.json"),
+    "alpha(@primary, 0.5)",
+  )
 
   assert.throws(() => validateRoleExpression("#ff0000"), /literal hex/)
   assert.throws(() => validateRoleExpression("var(--on-surface)"), /invalid role expression/)
   assert.throws(
-    () => parseSkinJson(JSON.stringify({ ink: { text: "red" } })),
+    () => parseSkinJson(JSON.stringify({ ink: { ink: "red" } })),
     /invalid role expression/,
   )
 })
@@ -524,32 +665,6 @@ test("skin CSS validation rejects literal hex, transitions and structure/variant
   assert.throws(() => validateSkinCss(""), /empty/)
   // A comment is not a literal colour.
   assert.doesNotThrow(() => validateSkinCss("/* #ff0000 is a note */ .x { padding: 4px; }"))
-})
-
-test("parseSkinJson accepts the declared groups, numbers, version and additive tokens", () => {
-  const tokens = parseSkinJson(
-    JSON.stringify({
-      version: 1,
-      shape: { radius: "12px", "radius-pill": 999 },
-      surface: { panel: "@surface_container" },
-      ink: { text: "@on_surface" },
-      type: { "body-size": "13px", weight: 600 },
-      rhythm: { "space-1": 4 },
-      layout: { "panel-width": "420", "app-additive-token": "keep-me" },
-    }),
-    "fixture.json",
-  )
-
-  assert.equal(tokens.version, "1")
-  assert.deepEqual(tokens.values["shape.radius"], "12px")
-  assert.equal(tokens.values["layout.panel-width"], "420")
-  assert.equal(tokens.values["layout.app-additive-token"], "keep-me")
-  assert.equal(Object.isFrozen(tokens), true)
-  assert.equal(Object.isFrozen(tokens.values), true)
-  assert.deepEqual(
-    [...SKIN_TOKEN_GROUPS].sort(),
-    ["shape", "surface", "ink", "type", "rhythm", "layout"].sort(),
-  )
 })
 
 test("the adapter owns USER priority, module-scoped refs and one debounced monitor per artifact", () => {

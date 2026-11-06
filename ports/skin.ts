@@ -1,13 +1,20 @@
 /**
- * `skin.v1` — the pure Skin port (frozen Skin Spec v1).
+ * `skin.v1` — the pure Skin port (frozen Skin Spec v1, vocabulary v0.6.0).
  *
  * A skin is THREE things and nothing else:
  *
- * 1. a palette/ink mapping — `surface.*` and `ink.*` are palette role
- *    expressions (`@surface_container`, `@on_surface`);
+ * 1. a palette/ink mapping — `surface.*` is paint over palette roles and
+ *    `ink.*` is a role expression (`@surface_container`,
+ *    `alpha(@on_surface, 0.62)`);
  * 2. paint — the runtime-expanded `skin.css` bytes, applied verbatim;
- * 3. rhythm/density — the numeric or length tokens under `shape`, `type`,
- *    `rhythm` and `layout`.
+ * 3. rhythm/density — the numeric tokens under `shape`, `type`, `rhythm` and
+ *    `layout`, plus the one literal `rhythm.cell-pad` length pair.
+ *
+ * Values are validated per token, not by group: a token's kind comes from the
+ * canonical `contracts` v0.6.0 vocabulary (13 numbers, 3 paints, a shadow, a
+ * blur, 3 ink expressions, `ink-over: auto`, `cell-pad` and `font-family`).
+ * The vocabulary is closed: unknown token names are rejected, as are structure
+ * and variant names, literal hex, and `transition`.
  *
  * It carries NO structure or variant tokens. The runtime expands a skin; the
  * platform never does. This module only parses/validates the resolved token
@@ -49,9 +56,24 @@ import {
 export const SKIN_VERSION = "1";
 
 /**
- * The declared token groups. `surface`/`ink` are palette mappings; the rest
- * are shape/typography/rhythm/layout scalars. `structure` and `variant` are
- * deliberately absent (and rejected).
+ * The declared token groups. `surface` carries paint (3 role expressions plus
+ * `shadow` and `blur`); `ink` carries 3 role expressions plus the derived
+ * `ink-over: auto`. The remaining groups are numbers, the `cell-pad` length
+ * pair and the font family.
+ *
+ * The per-token vocabulary (contracts v0.6.0) is closed:
+ *
+ * - `shape`: `radius-panel`, `radius-card`, `radius-cell`, `radius-pill`,
+ *   `border-w`, `hairline-w` (numbers);
+ * - `surface`: `bg-panel`, `bg-card`, `border` (paint), `shadow`, `blur`;
+ * - `ink`: `ink`, `ink-dim`, `accent` (role expressions), `ink-over` (auto);
+ * - `type`: `font-family` (string), `title-size`, `text-size` (numbers);
+ * - `rhythm`: `gap` (number), `cell-pad` (`"<n>px <n>px"`);
+ * - `layout`: `panel-width`, `bt-list-spacing`, `bar-row-height`, `chip-min`
+ *   (numbers).
+ *
+ * `structure` and `variant` are deliberately absent (and rejected), and any
+ * token name outside this vocabulary is rejected, not treated as additive.
  */
 export const SKIN_TOKEN_GROUPS = Object.freeze([
   "shape",
@@ -106,18 +128,76 @@ export class SkinParseError extends Error {
 //: Kebab-case token name; no CSS custom-property prefix.
 const TOKEN_NAME = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
-//: A palette role reference. The role vocabulary is `palette.v1` plus additive
+//: A palette role name. The role vocabulary is `palette.v1` plus additive
 //: producer roles; the port validates the expression shape, not the live roles.
-const ROLE_EXPRESSION = /^@[a-z][a-z0-9_]*$/;
+const ROLE_NAME = "[a-z][a-z0-9_]*";
+const ROLE_REFERENCE = new RegExp(`^@${ROLE_NAME}$`);
+const ALPHA_EXPRESSION = new RegExp(
+  `^alpha\\(\\s*@${ROLE_NAME}\\s*,\\s*(?:0(?:\\.\\d+)?|1(?:\\.0+)?)\\s*\\)$`,
+);
+const COLOR_MIX_EXPRESSION = new RegExp(
+  `^color-mix\\(\\s*in srgb\\s*,\\s*@${ROLE_NAME}\\s+(\\d{1,3})%\\s*,\\s*(?:transparent|@${ROLE_NAME})\\s*\\)$`,
+);
+const BLUR_VALUE = /^(?:blur\(\d+(?:\.\d+)?px\)(?: saturate\(\d+(?:\.\d+)?\))?|none)$/;
+const CELL_PAD = /^\d+px \d+px$/;
 
 //: `#rgb`, `#rrggbb`, `#rrggbbaa`; palette owns every colour, skins do not.
 const HEX_COLOR = /#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/;
 
-//: Structure/variant are not skin vocabulary.
-const FORBIDDEN_NAME = /^(?:structure|variant)(?:-|$)/i;
+//: Structure/variant/order/presence are not skin vocabulary. The middle form
+//: also catches a suffix such as `bg-panel-variant`.
+const FORBIDDEN_NAME = /(?:^|[-_])(?:structure|variant|order|presence)(?:[-_]|$)/i;
 
-//: Motion is out of scope for a skin (and would race live CSS swaps).
-const TRANSITION_NAME = /^transition(?:-|$)/i;
+//: Motion is out of scope for a skin (and would race live CSS swaps). Any
+//: occurrence is rejected, in a token name or a token value.
+const TRANSITION = /transition/i;
+
+/**
+ * The canonical per-token kinds from contracts v0.6.0. The vocabulary is
+ * closed: a token absent from this map is rejected instead of accepted as an
+ * additive scalar.
+ */
+type SkinTokenKind =
+  | "number"
+  | "paint"
+  | "shadow"
+  | "blur"
+  | "ink"
+  | "auto"
+  | "cell-pad"
+  | "font";
+
+const TOKEN_KINDS: Readonly<Record<string, SkinTokenKind>> = Object.freeze({
+  "shape.radius-panel": "number",
+  "shape.radius-card": "number",
+  "shape.radius-cell": "number",
+  "shape.radius-pill": "number",
+  "shape.border-w": "number",
+  "shape.hairline-w": "number",
+
+  "surface.bg-panel": "paint",
+  "surface.bg-card": "paint",
+  "surface.border": "paint",
+  "surface.shadow": "shadow",
+  "surface.blur": "blur",
+
+  "ink.ink": "ink",
+  "ink.ink-dim": "ink",
+  "ink.accent": "ink",
+  "ink.ink-over": "auto",
+
+  "type.font-family": "font",
+  "type.title-size": "number",
+  "type.text-size": "number",
+
+  "rhythm.gap": "number",
+  "rhythm.cell-pad": "cell-pad",
+
+  "layout.panel-width": "number",
+  "layout.bt-list-spacing": "number",
+  "layout.bar-row-height": "number",
+  "layout.chip-min": "number",
+});
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -127,38 +207,71 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * True when `value` is a palette role expression (`@on_surface`). A literal
- * hex is never a role expression.
- */
-export function isRoleExpression(value: unknown): value is string {
-  return typeof value === "string" && ROLE_EXPRESSION.test(value.trim());
+function isAlphaExpression(value: string): boolean {
+  return ALPHA_EXPRESSION.test(value);
+}
+
+function isColorMixExpression(value: string): boolean {
+  const match = COLOR_MIX_EXPRESSION.exec(value);
+  return match !== null && Number(match[1]) <= 100;
 }
 
 /**
- * Validate a palette role expression, rejecting a literal hex and anything
- * that is not `@role`. Returns the trimmed expression.
+ * True when `value` is a palette role expression: a bare `@on_surface` or an
+ * `alpha(@on_surface, 0.62)`. A literal hex is never a role expression.
  */
-export function validateRoleExpression(value: unknown, source = "skin"): string {
+export function isRoleExpression(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const expression = value.trim();
+  return ROLE_REFERENCE.test(expression) || isAlphaExpression(expression);
+}
+
+function rejectForbiddenValue(source: string, path: string, text: string): void {
+  if (HEX_COLOR.test(text)) {
+    throw new SkinParseError(
+      source,
+      path,
+      `literal hex ${JSON.stringify(text)} is not allowed; palette roles own colours`,
+    );
+  }
+  if (TRANSITION.test(text)) {
+    throw new SkinParseError(source, path, "transition values are outside Skin Spec v1");
+  }
+}
+
+function validateRoleValue(source: string, path: string | null, value: unknown): string {
   if (typeof value !== "string" || value.trim() === "") {
-    throw new SkinParseError(source, null, "expected a palette role expression (@role)");
+    throw new SkinParseError(
+      source,
+      path,
+      "expected a palette role expression (@role or alpha(@role, 0..1))",
+    );
   }
   const expression = value.trim();
   if (HEX_COLOR.test(expression)) {
     throw new SkinParseError(
       source,
-      null,
+      path,
       `literal hex ${JSON.stringify(expression)} is not allowed; use an @role expression`,
     );
   }
-  if (!ROLE_EXPRESSION.test(expression)) {
+  if (!isRoleExpression(expression)) {
     throw new SkinParseError(
       source,
-      null,
-      `invalid role expression ${JSON.stringify(expression)} (expected @role)`,
+      path,
+      `invalid role expression ${JSON.stringify(expression)} (expected @role or alpha(@role, 0..1))`,
     );
   }
   return expression;
+}
+
+/**
+ * Validate a palette role expression, rejecting a literal hex and anything
+ * that is neither `@role` nor `alpha(@role, 0..1)`. Returns the trimmed
+ * expression.
+ */
+export function validateRoleExpression(value: unknown, source = "skin"): string {
+  return validateRoleValue(source, null, value);
 }
 
 function validateTokenName(source: string, group: SkinTokenGroup, name: string): void {
@@ -169,7 +282,7 @@ function validateTokenName(source: string, group: SkinTokenGroup, name: string):
       "structure/variant tokens are outside Skin Spec v1",
     );
   }
-  if (TRANSITION_NAME.test(name)) {
+  if (TRANSITION.test(name)) {
     throw new SkinParseError(
       source,
       `${group}.${name}`,
@@ -185,6 +298,98 @@ function validateTokenName(source: string, group: SkinTokenGroup, name: string):
   }
 }
 
+function validateNumber(source: string, path: string, value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    const received = typeof value === "string" ? JSON.stringify(value) : String(value);
+    throw new SkinParseError(
+      source,
+      path,
+      `numeric tokens must be unitless, finite and non-negative (received ${received})`,
+    );
+  }
+  return value;
+}
+
+function validateString(source: string, path: string, value: unknown): string {
+  if (typeof value !== "string") {
+    throw new SkinParseError(source, path, "expected a string token value");
+  }
+  const text = value.trim();
+  if (text === "") throw new SkinParseError(source, path, "token value is empty");
+  return text;
+}
+
+function validatePaint(source: string, path: string, value: unknown): string {
+  const text = validateString(source, path, value);
+  rejectForbiddenValue(source, path, text);
+  if (
+    text === "transparent" ||
+    ROLE_REFERENCE.test(text) ||
+    isAlphaExpression(text) ||
+    isColorMixExpression(text)
+  ) {
+    return text;
+  }
+  throw new SkinParseError(
+    source,
+    path,
+    `invalid paint ${JSON.stringify(text)} (expected transparent, @role, alpha(@role, 0..1) or color-mix(in srgb, @role <pct>%, transparent|@role))`,
+  );
+}
+
+function validateShadow(source: string, path: string, value: unknown): string {
+  const text = validateString(source, path, value);
+  rejectForbiddenValue(source, path, text);
+  return text;
+}
+
+function validateBlur(source: string, path: string, value: unknown): string {
+  const text = validateString(source, path, value);
+  rejectForbiddenValue(source, path, text);
+  if (!BLUR_VALUE.test(text)) {
+    throw new SkinParseError(
+      source,
+      path,
+      `invalid blur ${JSON.stringify(text)} (expected none or blur(<n>px) with optional saturate(<n>))`,
+    );
+  }
+  return text;
+}
+
+function validateInk(source: string, path: string, value: unknown): string {
+  return validateRoleValue(source, path, value);
+}
+
+function validateAuto(source: string, path: string, value: unknown): string {
+  if (value !== "auto") {
+    throw new SkinParseError(
+      source,
+      path,
+      `ink-over is derived at runtime; the only legal value is "auto" (received ${JSON.stringify(value)})`,
+    );
+  }
+  return "auto";
+}
+
+function validateCellPad(source: string, path: string, value: unknown): string {
+  const text = validateString(source, path, value);
+  rejectForbiddenValue(source, path, text);
+  if (!CELL_PAD.test(text)) {
+    throw new SkinParseError(
+      source,
+      path,
+      `invalid cell-pad ${JSON.stringify(text)} (expected exactly "<n>px <n>px")`,
+    );
+  }
+  return text;
+}
+
+function validateFont(source: string, path: string, value: unknown): string {
+  const text = validateString(source, path, value);
+  rejectForbiddenValue(source, path, text);
+  return text;
+}
+
 function validateTokenValue(
   source: string,
   group: SkinTokenGroup,
@@ -192,41 +397,47 @@ function validateTokenValue(
   value: unknown,
 ): SkinTokenValue {
   const path = `${group}.${name}`;
-  if (group === "surface" || group === "ink") {
-    return validateRoleExpression(value, `${source}:${path}`);
-  }
-  if (typeof value === "number") {
-    if (!Number.isFinite(value) || value < 0) {
-      throw new SkinParseError(source, path, "numeric tokens must be finite and non-negative");
-    }
-    return value;
-  }
-  if (typeof value !== "string") {
-    throw new SkinParseError(source, path, "token values must be strings or finite numbers");
-  }
-  const text = value.trim();
-  if (text === "") throw new SkinParseError(source, path, "token value is empty");
-  if (HEX_COLOR.test(text)) {
+  const kind = TOKEN_KINDS[path];
+  if (kind === undefined) {
     throw new SkinParseError(
       source,
       path,
-      `literal hex ${JSON.stringify(text)} is not allowed; palette roles own colours`,
+      `unknown ${group} token ${JSON.stringify(name)} (not in the frozen v0.6.0 vocabulary)`,
     );
   }
-  if (/transition/i.test(text)) {
-    throw new SkinParseError(source, path, "transition values are outside Skin Spec v1");
+  switch (kind) {
+    case "number":
+      return validateNumber(source, path, value);
+    case "paint":
+      return validatePaint(source, path, value);
+    case "shadow":
+      return validateShadow(source, path, value);
+    case "blur":
+      return validateBlur(source, path, value);
+    case "ink":
+      return validateInk(source, path, value);
+    case "auto":
+      return validateAuto(source, path, value);
+    case "cell-pad":
+      return validateCellPad(source, path, value);
+    case "font":
+      return validateFont(source, path, value);
   }
-  return text;
 }
 
 /**
  * Parse and validate the resolved `skin.json` token map.
  *
  * Accepted shape: one optional `version` (`"1"`, defaulting to `SKIN_VERSION`)
- * plus top-level objects for the declared groups. Unknown groups and
- * `structure`/`variant` are rejected, as are literal hex colours, transition
- * tokens and non-scalar values. Additive token names inside a declared group
- * are kept — the vocabulary is the group set plus the token grammar.
+ * plus top-level objects for the declared groups. Unknown groups,
+ * `structure`/`variant` names and unknown token names are rejected, as are
+ * literal hex colours, `transition`, non-scalar values and wrong value kinds.
+ *
+ * Each token is validated by its canonical kind (contracts v0.6.0): numeric
+ * tokens are unitless finite non-negative JSON numbers (never `"12px"`), the
+ * three surface paints follow the role grammar, `shadow`/`blur`/`cell-pad`/
+ * `font-family` use their own grammars, the three ink expressions are role
+ * expressions and `ink-over` is exactly `"auto"`.
  */
 export function parseSkinJson(text: string, source = "skin.json"): SkinTokens {
   let raw: unknown;
