@@ -22,13 +22,17 @@ const LEGACY_CSS = [
   "",
 ].join("\n")
 const V1 = [
+  'mode: "dark"',
   "primary: '#b9c3ff'",
   "on_surface: '#e3e1e9'",
   "surface: '#121318'",
   "on_backdrop: '#e3e1e9'",
+  "colors:",
+  "  - '#121318'",
   "",
 ].join("\n")
 const V2 = [
+  'mode: "light"',
   "primary: '#ff00aa'",
   "on_surface: '#ffffff'",
   "surface: '#000000'",
@@ -171,6 +175,7 @@ test("the provider applies the legacy colors.css verbatim plus role defines", ()
   assert.match(css, /@define-color color_04 #b9c3ff;/)
   assert.match(css, /@define-color primary #b9c3ff;/)
   assert.match(css, /@define-color on_backdrop #e3e1e9;/)
+  assert.doesNotMatch(css, /@define-color mode\b/, "metadata is not a role define")
   assert.equal(composeThemeCss(LEGACY_CSS, null), LEGACY_CSS)
 })
 
@@ -179,8 +184,10 @@ test("palette() returns the typed roles from the runtime artifact", () => {
 
   const palette = theme.palette()
   assert.equal(palette.version, "1")
+  assert.equal(palette.mode, "dark")
   assert.equal(palette.roles.primary, "#b9c3ff")
   assert.equal(palette.roles.on_backdrop, "#e3e1e9")
+  assert.equal(palette.roles.mode, undefined)
   // Cached: repeated reads do not touch the filesystem again.
   assert.equal(theme.palette(), palette)
 })
@@ -205,13 +212,16 @@ test("subscribe shares ONE monitor and fires after the new palette is loaded", (
 
   assert.equal(seen.length, 2, "every listener is notified once")
   for (const palette of seen) {
+    assert.equal(palette.mode, "light")
     assert.equal(palette.roles.primary, "#ff00aa")
     assert.equal(palette.roles.on_backdrop, "#000000")
   }
   assert.deepEqual(during, ["#ff00aa"], "the palette is loaded before listeners run")
+  assert.equal(theme.palette().mode, "light")
   assert.equal(theme.palette().roles.primary, "#ff00aa")
   assert.equal(display.installed.length, 1, "a refresh replaces the provider")
   assert.match(display.css()[0], /@define-color primary #ff00aa;/)
+  assert.doesNotMatch(display.css()[0], /@define-color mode\b/)
 
   unsubscribeA()
   unsubscribeB()

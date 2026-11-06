@@ -4,8 +4,13 @@
  *
  * The runtime emits `current/colors.yaml` as a flat, machine-generated map of
  * role -> `#hex` scalars, plus a legacy `colors:` list kept for older tools.
- * This module parses exactly that production shape into a typed `Palette`, so
- * consumers stop reading the artifact themselves and stop guessing its shape.
+ * theme-producer v0.6.0 also emits palette METADATA: a top-level `mode:
+ * "dark"|"light"` scalar (and the runtime still recognizes the older
+ * `scheme`/`appearance`/`variant` string aliases and `is_dark`/`dark`
+ * booleans). This module parses exactly that production shape into a typed
+ * `Palette`, so consumers stop reading the artifact themselves and stop
+ * guessing its shape. Metadata is exposed as `Palette.mode` and is never
+ * treated as a role or projected into CSS.
  * Parsing is deliberately dependency-free (no YAML package): the file is
  * generated, and the accepted subset is pinned by a test.
  *
@@ -101,13 +106,18 @@ export const PALETTE_V1_ROLES: readonly string[] = Object.freeze([
   "on_backdrop",
 ]);
 
+/** The palette mode a producer may carry in `colors.yaml` metadata. */
+export type PaletteMode = "dark" | "light";
+
 /**
  * The typed palette the Theme port exposes. `roles` is frozen and holds every
  * top-level role declared by the runtime, including `on_backdrop` and any
- * additive producer role.
+ * additive producer role. `mode` is the resolved metadata mode when the
+ * artifact declares one; it is absent for older artifacts that carry no mode.
  */
 export interface Palette {
   readonly version: string;
+  readonly mode?: PaletteMode;
   readonly roles: Readonly<Record<string, string>>;
 }
 
@@ -140,6 +150,18 @@ const LEGACY_LIST_KEY = "colors";
 //: Optional additive version scalar (the current producer omits it).
 const VERSION_KEY = "version";
 
+//: String-valued mode metadata, in the runtime's precedence order
+//: (`dotfiles-runtime` `detect_palette_mode`). `mode` is the producer's
+//: field; the rest are the older runtime-recognized aliases.
+const STRING_MODE_KEYS = ["mode", "scheme", "appearance", "variant"] as const;
+const MODE_KEY = "mode";
+const MODE_ALIAS_KEYS = ["scheme", "appearance", "variant"] as const;
+const MODE_ALIAS_KEY_SET: ReadonlySet<string> = new Set(MODE_ALIAS_KEYS);
+
+//: Boolean mode aliases, considered only after the string keys.
+const BOOLEAN_MODE_KEYS = ["is_dark", "dark"] as const;
+const BOOLEAN_MODE_KEY_SET: ReadonlySet<string> = new Set(BOOLEAN_MODE_KEYS);
+
 /**
  * Return the scalar after `key:`: unquoted token, or the contents of a single-
  * or double-quoted string. `null` means "not a usable scalar" (a comment, a
@@ -167,6 +189,26 @@ function scalarValue(raw: string): string | null {
 }
 
 /**
+ * Resolve the optional mode metadata exactly as the runtime does: the first
+ * string key in precedence order wins, then the boolean aliases. Values are
+ * normalized while parsing (and `mode`/boolean values are validated there).
+ */
+function resolvePaletteMode(
+  metadata: ReadonlyMap<string, string>,
+): PaletteMode | undefined {
+  for (const key of STRING_MODE_KEYS) {
+    const value = metadata.get(key);
+    if (value === "dark" || value === "light") return value;
+  }
+  for (const key of BOOLEAN_MODE_KEYS) {
+    const value = metadata.get(key);
+    if (value === "true") return "dark";
+    if (value === "false") return "light";
+  }
+  return undefined;
+}
+
+/**
  * Parse a runtime `colors.yaml` into a `Palette`.
  *
  * Accepted shape (the machine-generated production shape):
@@ -174,17 +216,24 @@ function scalarValue(raw: string): string | null {
  *   inline comments;
  * - `# ...` comments and blank lines anywhere;
  * - the legacy `colors:` sequence block, which is ignored entirely;
- * - an optional top-level `version:` scalar (defaults to `PALETTE_VERSION`).
+ * - an optional top-level `version:` scalar (defaults to `PALETTE_VERSION`);
+ * - optional mode metadata: `mode` must be `dark` or `light`; the older
+ *   aliases `scheme`/`appearance`/`variant` are tolerated as strings and used
+ *   when they hold `dark`/`light`; `is_dark`/`dark` must be `true`/`false`.
+ *   String keys win in that order (the runtime's precedence); metadata is
+ *   exposed as `Palette.mode` and never enters `Palette.roles` or the CSS.
  *
  * Everything else fails with `PaletteParseError`: indented lines outside the
  * legacy block, a role without a scalar (nested maps/blocks), an invalid hex
- * value, a duplicate role, or a file with no roles. Fail-closed is deliberate:
- * a silently half-read palette would render a wrong theme.
+ * value, an unknown top-level key, malformed mode metadata, a duplicate role,
+ * or a file with no roles. Fail-closed is deliberate: a silently half-read
+ * palette would render a wrong theme.
  */
 export function parsePaletteYaml(text: string, source = "colors.yaml"): Palette {
   const normalized = text.startsWith("\uFEFF") ? text.slice(1) : text;
   const lines = normalized.split(/\r?\n/);
   const entries = new Map<string, string>();
+  const metadata = new Map<string, string>();
   let version = PALETTE_VERSION;
   let versionSeen = false;
   let inLegacyBlock = false;
@@ -241,6 +290,60 @@ export function parsePaletteYaml(text: string, source = "colors.yaml"): Palette 
       continue;
     }
 
+    if (key === MODE_KEY) {
+      const normalizedValue = value.toLowerCase();
+      if (normalizedValue !== "dark" && normalizedValue !== "light") {
+        throw new PaletteParseError(
+          source,
+          lineNumber,
+          `metadata "${key}" has invalid value ${JSON.stringify(value)} (expected "dark" or "light")`,
+        );
+      }
+      if (metadata.has(key)) {
+        throw new PaletteParseError(
+          source,
+          lineNumber,
+          `duplicate metadata key "${key}"`,
+        );
+      }
+      metadata.set(key, normalizedValue);
+      continue;
+    }
+
+    if (MODE_ALIAS_KEY_SET.has(key)) {
+      // The runtime reads these only when the string is dark/light; any other
+      // string is tolerated and ignored rather than treated as a role.
+      if (metadata.has(key)) {
+        throw new PaletteParseError(
+          source,
+          lineNumber,
+          `duplicate metadata key "${key}"`,
+        );
+      }
+      metadata.set(key, value.toLowerCase());
+      continue;
+    }
+
+    if (BOOLEAN_MODE_KEY_SET.has(key)) {
+      const normalizedValue = value.toLowerCase();
+      if (normalizedValue !== "true" && normalizedValue !== "false") {
+        throw new PaletteParseError(
+          source,
+          lineNumber,
+          `metadata "${key}" has invalid value ${JSON.stringify(value)} (expected true or false)`,
+        );
+      }
+      if (metadata.has(key)) {
+        throw new PaletteParseError(
+          source,
+          lineNumber,
+          `duplicate metadata key "${key}"`,
+        );
+      }
+      metadata.set(key, normalizedValue);
+      continue;
+    }
+
     if (entries.has(key)) {
       throw new PaletteParseError(
         source,
@@ -266,10 +369,13 @@ export function parsePaletteYaml(text: string, source = "colors.yaml"): Palette 
     );
   }
 
+  const mode = resolvePaletteMode(metadata);
+
   // Frozen for the same reason the port returns Readonly: a consumer must not
   // mutate the provider's palette behind the provider's back.
   return Object.freeze({
     version,
+    ...(mode === undefined ? {} : { mode }),
     roles: Object.freeze(Object.fromEntries(entries)) as Readonly<
       Record<string, string>
     >,

@@ -113,7 +113,7 @@ export {
   parsePaletteYaml,
   renderPaletteCss,
 } from "./ports/palette";
-export type { Palette } from "./ports/palette";
+export type { Palette, PaletteMode } from "./ports/palette";
 
 // --- appearance.v2: one provider, one monitored hop, one whole apply (REQ-017) ---
 

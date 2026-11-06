@@ -21,6 +21,7 @@ test("a palette.v1 fixture parses every declared role, including on_backdrop", (
 
   assert.equal(palette.version, PALETTE_VERSION)
   assert.equal(palette.version, "1")
+  assert.equal(palette.mode, "dark", "the generated mode scalar is exposed")
   assert.equal(PALETTE_V1_ROLES.length, 51)
   assert.equal(PALETTE_V1_ROLES.at(-1), "on_backdrop")
 
@@ -35,10 +36,75 @@ test("a palette.v1 fixture parses every declared role, including on_backdrop", (
   assert.equal(palette.roles.cursor, "#010203")
   assert.equal(palette.roles["0"], undefined)
   assert.equal(palette.roles.colors, undefined)
+  assert.equal(palette.roles.mode, undefined, "metadata is not a role")
   assert.equal(Object.keys(palette.roles).length, 51 + 3)
 
   assert.deepEqual(missingPaletteRoles(palette), [])
   assert.ok(Object.isFrozen(palette.roles), "the role map must be immutable")
+})
+
+test("mode metadata is resolved with runtime precedence and never becomes a role", () => {
+  const parse = (text: string) => parsePaletteYaml(text, "inline.yaml")
+
+  const dark = parse('mode: "dark"\nprimary: "#123456"\n')
+  assert.equal(dark.mode, "dark")
+  assert.equal(dark.roles.mode, undefined)
+  assert.deepEqual(dark.roles, { primary: "#123456" })
+
+  assert.equal(parse('mode: "light"\nprimary: "#123456"\n').mode, "light")
+  assert.equal(parse('scheme: "light"\nprimary: "#123456"\n').mode, "light")
+  assert.equal(parse('appearance: "light"\nprimary: "#123456"\n').mode, "light")
+  assert.equal(parse('variant: "dark"\nprimary: "#123456"\n').mode, "dark")
+  assert.equal(parse('is_dark: false\nprimary: "#123456"\n').mode, "light")
+  assert.equal(parse('dark: true\nprimary: "#123456"\n').mode, "dark")
+  // Aliases are tolerated as strings; only dark/light are mode values.
+  assert.equal(
+    parse('scheme: "not-a-mode"\nprimary: "#123456"\n').mode,
+    undefined,
+  )
+
+  // Runtime precedence: string keys beat boolean aliases, `mode` beats every
+  // string alias, and `appearance` beats `variant` regardless of file order.
+  assert.equal(
+    parse('is_dark: false\nmode: "dark"\nprimary: "#123456"\n').mode,
+    "dark",
+  )
+  assert.equal(
+    parse('scheme: "light"\nmode: "dark"\nprimary: "#123456"\n').mode,
+    "dark",
+  )
+  assert.equal(
+    parse('variant: "light"\nappearance: "dark"\nprimary: "#123456"\n').mode,
+    "dark",
+  )
+  assert.equal(parse('primary: "#123456"\n').mode, undefined)
+})
+
+test("a mode-bearing generated artifact with roles and the legacy list parses", () => {
+  const palette = parsePaletteYaml(
+    [
+      "# colors.yaml — generated from theme.json",
+      'mode: "light"',
+      'background: "#ffffff"',
+      'foreground: "#111111"',
+      'primary: "#123456"',
+      'on_backdrop: "#111111"',
+      "colors:",
+      '  - "#ffffff"',
+      '  - "#111111"',
+      "",
+    ].join("\n"),
+    "colors.yaml",
+  )
+
+  assert.equal(palette.mode, "light")
+  assert.equal(palette.roles.colors, undefined)
+  assert.deepEqual(palette.roles, {
+    background: "#ffffff",
+    foreground: "#111111",
+    primary: "#123456",
+    on_backdrop: "#111111",
+  })
 })
 
 test("quoted, unquoted and commented hex scalars all parse", () => {
@@ -76,6 +142,9 @@ test("malformed input fails clearly, naming the artifact and line", () => {
     { text: 'nested:\n  primary: "#123456"\n', message: /inline\.yaml:1: "nested" has no readable scalar value/ },
     { text: "# only comments\n", message: /inline\.yaml: no palette roles found/ },
     { text: 'primary "#123456"\n', message: /inline\.yaml:1: not a top-level/ },
+    { text: 'mode: "auto"\nprimary: "#123456"\n', message: /inline\.yaml:1: metadata "mode" has invalid value "auto"/ },
+    { text: 'is_dark: maybe\nprimary: "#123456"\n', message: /inline\.yaml:1: metadata "is_dark" has invalid value "maybe"/ },
+    { text: 'backend: "dark"\nprimary: "#123456"\n', message: /inline\.yaml:1: role "backend" has invalid value "dark"/ },
   ]
 
   for (const item of cases) {
@@ -94,9 +163,10 @@ test("malformed input fails clearly, naming the artifact and line", () => {
 
 test("the role CSS projection is one @define-color per declared role", () => {
   const palette = parsePaletteYaml(
-    "version: 1\nprimary: '#112233'\non_backdrop: '#445566'\n",
+    "version: 1\nmode: 'dark'\nprimary: '#112233'\non_backdrop: '#445566'\n",
     "inline.yaml",
   )
+  assert.equal(palette.mode, "dark")
   assert.equal(
     renderPaletteCss(palette),
     [

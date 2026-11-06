@@ -1,5 +1,6 @@
 # colors.yaml — fixture: a conforming palette.v1 producer artifact
 version: "1"
+mode: "dark"
 background: '#123456'
 error: "#123456"
 error_container: "#123456"
