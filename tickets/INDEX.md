@@ -28,6 +28,7 @@
 - [REQ-015-skin-token-validation/ticket.md](./REQ-015-skin-token-validation/ticket.md) — Skin token validation: per-token kinds for the frozen v0.6.0 vocabulary | `done` | tag: v0.7.0
 - [REQ-016-skin-app-scope/ticket.md](./REQ-016-skin-app-scope/ticket.md) — App-scoped Skin factory: per-configDir CSS and shared token map | `done` | tag: v0.8.0
 - [REQ-017-appearance-adapter/ticket.md](./REQ-017-appearance-adapter/ticket.md) — Unified Appearance consumer: one provider, one monitor, one apply | `done` | tag: v0.9.0
+- [REQ-018-palette-mode-metadata/ticket.md](./REQ-018-palette-mode-metadata/ticket.md) — Palette parser accepts theme-producer mode metadata | `in-progress` | worktree: .worktrees/REQ-018/ | branch: ticket/REQ-018-palette-mode-metadata
 
 ## Bugs
 
