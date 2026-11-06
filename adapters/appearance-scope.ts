@@ -6,41 +6,36 @@
  * the per-app path resolution and the one-generation/one-apply behavior are
  * exercised by the stock `node --test` runner.
  *
- * A consumer is scoped by its AGS `configDir`:
+ * A consumer is scoped by its AGS `configDir` and reads ONLY the v3 state
+ * plane:
  *
- * - watch `$XDG_STATE_HOME/dotfiles/current/appearance` — the ONE repointed hop;
- * - read `$XDG_CONFIG_HOME/<configDir>/appearance.css` — the stable convenience
- *   link into the current generation;
- * - read `$XDG_STATE_HOME/dotfiles/current/appearance/tokens.json` — the
- *   resolved v2 token document through the pointer.
+ * - watch `$XDG_STATE_HOME/dotfiles/current` — the ONE committed hop;
+ * - read `current/manifest.json` to verify the generation;
+ * - read `current/appearance/<configDir>.css` and
+ *   `current/appearance/tokens.json` (or the immutable
+ *   `generations/<genHash>/...` first).
  *
- * The platform carries no app list: `configDir` is an input.
+ * There is no config-home read path, no per-app convenience link and no v1/v2
+ * skin path. The platform carries no app list: `configDir` is an input.
  */
 
 import {
-  createAppearance,
+  createAppearance as createAppearanceCore,
+  resolveAppearancePaths,
   type Appearance,
   type AppearanceCssSink,
+  type AppearancePaths,
 } from "../ports/appearance.ts";
 import type { ReactiveRuntime } from "../ports/reactive.ts";
 
-/** The three paths one app-scoped Appearance reads/watches. */
-export interface AppAppearancePaths {
-  /** `$XDG_STATE_HOME/dotfiles/current/appearance` — the only watch path. */
-  watchPath: string;
-  /** `$XDG_CONFIG_HOME/<configDir>/appearance.css` (read, never watched). */
-  appearanceCssPath: string;
-  /** `$XDG_STATE_HOME/dotfiles/current/appearance/tokens.json`. */
-  tokensPath: string;
-}
+export { resolveAppearancePaths };
+export type { AppearancePaths };
 
 /** The host contract the app-scoped factory needs; the adapter supplies it. */
 export interface AppAppearanceScopeOptions {
   /** AGS config directory name, e.g. `ags` or `ags-clipboard`. */
   configDir: string;
-  /** `$XDG_CONFIG_HOME`. */
-  configHome: string;
-  /** `$XDG_STATE_HOME`. */
+  /** `$XDG_STATE_HOME`; every read is below `<stateHome>/dotfiles/`. */
   stateHome: string;
   /** The single replacing provider sink for this instance. */
   sink: AppearanceCssSink;
@@ -48,30 +43,10 @@ export interface AppAppearanceScopeOptions {
   runtime: ReactiveRuntime;
   /** Read a UTF-8 artifact; `null` means the artifact is absent. */
   readFile(path: string): string | null;
-  /** Watch one path; the core starts exactly one watcher. */
+  /** Watch one path; the core starts exactly one watcher on `current`. */
   watchFile(path: string, onChange: () => void): () => void;
   /** Report a non-fatal load/parse/apply failure (default: `console.error`). */
   onError?(error: unknown): void;
-}
-
-/**
- * Resolve the consumer paths for one `configDir`.
- *
- * `current/appearance` is the ONE monitored hop. The config `appearance.css`
- * is a stable convenience link and is deliberately a read path only; watching
- * it would repeat the v1 second-hop defect.
- */
-export function resolveAppearancePaths(
-  configDir: string,
-  configHome: string,
-  stateHome: string,
-): AppAppearancePaths {
-  const pointer = `${stateHome}/dotfiles/current/appearance`;
-  return {
-    watchPath: pointer,
-    appearanceCssPath: `${configHome}/${configDir}/appearance.css`,
-    tokensPath: `${pointer}/tokens.json`,
-  };
 }
 
 /**
@@ -79,8 +54,9 @@ export function resolveAppearancePaths(
  * watcher and token state; two instances never share display state.
  */
 export function createScopedAppearance(options: AppAppearanceScopeOptions): Appearance {
-  return createAppearance({
-    ...resolveAppearancePaths(options.configDir, options.configHome, options.stateHome),
+  return createAppearanceCore({
+    configDir: options.configDir,
+    paths: resolveAppearancePaths(options.configDir, options.stateHome),
     sink: options.sink,
     runtime: options.runtime,
     readFile: options.readFile,

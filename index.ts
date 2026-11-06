@@ -115,39 +115,60 @@ export {
 } from "./ports/palette";
 export type { Palette, PaletteMode } from "./ports/palette";
 
-// --- appearance.v2: one provider, one monitored hop, one whole apply (REQ-017) ---
+// --- appearance.v3: one generation-bound apply, one monitored hop (REQ-019) ---
 
 export {
   APPEARANCE_FORBIDDEN_TOKEN_GROUPS,
   APPEARANCE_PROVIDER_PRIORITY,
   APPEARANCE_TOKEN_GROUPS,
   APPEARANCE_VERSION,
+  AppearanceManifestError,
   AppearanceParseError,
   appearanceValue,
   createAppearance as createAppearanceCore,
   createAppearanceValue,
   createReplacingAppearanceCssSink,
+  GENERATION_HASH_PATTERN,
+  GENERATION_MANIFEST_FILE,
+  GENERATION_MANIFEST_VERSION,
+  GENERATION_TOKENS_PATH,
+  generationAppearanceTarget,
+  isGenerationHash,
   parseAppearanceJson,
   parseAppearanceTokens,
+  parseGenerationManifest,
   readAppearanceToken,
+  resolveAppearancePaths,
   validateAppearanceCss,
 } from "./ports/appearance";
 export type {
   Appearance,
+  AppearanceApplyResult,
   AppearanceCssHost,
   AppearanceCssSink,
   AppearanceListener,
   AppearanceMode,
   AppearanceModeValues,
   AppearanceOptions,
+  AppearancePaths,
   AppearanceTokenGroup,
   AppearanceTokenSource,
   AppearanceTokens,
   AppearanceTokenValue,
+  GenerationAppearanceTarget,
+  GenerationManifest,
 } from "./ports/appearance";
 
-export { createAppearanceRefreshHandler } from "./ports/appearance-refresh";
-export type { AppearanceRefreshWork } from "./ports/appearance-refresh";
+export {
+  APPEARANCE_REFRESH_COMMAND,
+  createAppearanceRefreshHandler,
+} from "./ports/appearance-refresh";
+export type {
+  AppearanceRefreshRequestHandler,
+  AppearanceRefreshResponse,
+  AppearanceRefreshWork,
+  AppearanceRefreshWorkResult,
+} from "./ports/appearance-refresh";
 
 export {
   composeThemeCss,
@@ -211,6 +232,8 @@ export { idleScheduler, overlayLifecycle } from "./adapters/overlay-lifecycle";
 export { preferences } from "./adapters/preferences";
 export {
   APPEARANCE_CSS_PATH,
+  APPEARANCE_GENERATIONS_PATH,
+  APPEARANCE_MANIFEST_PATH,
   APPEARANCE_TOKENS_PATH,
   APPEARANCE_WATCH_PATH,
   APPEARANCE_WATCH_POINTER,

@@ -1,21 +1,25 @@
 /**
- * `appearance.v2` — the pure Appearance port (contracts `v0.7.0`).
+ * Appearance — the pure consumer port for Generations v3 (contracts `v0.8.0`).
  *
- * One appearance is palette + skin + mode, published by the runtime as ONE
- * immutable generation behind the single atomically repointed hop
- * `$XDG_STATE_HOME/dotfiles/current/appearance`. This module owns the policy
- * half of consuming that generation:
+ * One appearance is palette + skin + mode, committed by the runtime as ONE
+ * immutable `$XDG_STATE_HOME/dotfiles/generations/<genHash>/` directory behind
+ * the single atomically swapped `state/current` pointer. This module owns the
+ * policy half of consuming that generation:
  *
- * 1. parse/validate the resolved `tokens.json` (`version: 2` plus the five
- *    groups `surface`, `state`, `type`, `ink`, `layout`; an optional manifest
- *    `mode.dark`/`mode.light` override may be resolved for a selected mode);
- * 2. validate the composed `<configDir>.css` (no literal hex, no transition,
+ * 1. verify `current/manifest.json` (`version: 3`, `generationHash`, the
+ *    appearance targets and `tokensPath`);
+ * 2. read the requested generation immutably (preferred
+ *    `generations/<genHash>/...`, or a before/after-verified `current`
+ *    fallback);
+ * 3. parse/validate the resolved `tokens.json` (`version: 2` plus the five
+ *    groups `surface`, `state`, `type`, `ink`, `layout`; the v3 generation
+ *    wraps the unchanged v2 token vocabulary);
+ * 4. validate the composed `<configDir>.css` (no literal hex, no transition,
  *    no structure/variant);
- * 3. install the composed sheet VERBATIM as ONE provider at USER priority
- *    through an injected replacing sink;
- * 4. re-read the generation on every watched-pointer event, skip re-applying
- *    identical content (a convenience link creation is not a new generation),
- *    and expose a reactive value accessor.
+ * 5. install the composed sheet VERBATIM as ONE provider at USER priority
+ *    through an injected replacing sink, exactly once per generation;
+ * 6. re-resolve on every watched `current` event and expose a reactive value
+ *    accessor plus `appliedHash()`.
  *
  * There is no separate palette apply and no second provider: the composed
  * sheet already contains the palette block followed by the skin CSS.
@@ -789,6 +793,247 @@ export function validateAppearanceCss(css: string, source = "appearance.css"): v
   }
 }
 
+// ---------------------------------------------------------------------------
+// Generations v3 (contracts v0.8.0)
+// ---------------------------------------------------------------------------
+
+/** The generation manifest version a v3 consumer accepts. */
+export const GENERATION_MANIFEST_VERSION = 3;
+
+/** A lowercase 64-character SHA-256 generation identity. */
+export const GENERATION_HASH_PATTERN = /^[0-9a-f]{64}$/;
+
+/** The generation self-check file, written last inside the generation. */
+export const GENERATION_MANIFEST_FILE = "manifest.json";
+
+/** The one token document inside a generation. */
+export const GENERATION_TOKENS_PATH = "appearance/tokens.json";
+
+//: One lowercase config-directory segment; the platform carries no app list.
+const CONFIG_DIR_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+
+/** One `configDir -> composed sheet` target from a generation manifest. */
+export interface GenerationAppearanceTarget {
+  readonly configDir: string;
+  readonly path: string;
+}
+
+/** The appearance-relevant part of a v3 generation manifest. */
+export interface GenerationManifest {
+  readonly version: typeof GENERATION_MANIFEST_VERSION;
+  readonly generationHash: string;
+  readonly appearance: {
+    readonly tokensPath: typeof GENERATION_TOKENS_PATH;
+    readonly targets: readonly GenerationAppearanceTarget[];
+  };
+  /** Present in a complete manifest; validated when present. */
+  readonly mode?: AppearanceMode;
+}
+
+/** A malformed or misidentified generation manifest. Fails closed. */
+export class AppearanceManifestError extends Error {
+  readonly source: string;
+  readonly path: string | null;
+
+  constructor(source: string, path: string | null, detail: string) {
+    super(`${source}${path === null ? "" : `:${path}`}: ${detail}`);
+    this.name = "AppearanceManifestError";
+    this.source = source;
+    this.path = path;
+  }
+}
+
+function manifestFail(source: string, path: string | null, detail: string): never {
+  throw new AppearanceManifestError(source, path, detail);
+}
+
+/** True for an exact lowercase 64-hex generation hash. */
+export function isGenerationHash(value: unknown): value is string {
+  return typeof value === "string" && GENERATION_HASH_PATTERN.test(value);
+}
+
+/**
+ * Parse and validate the appearance-relevant identity of a v3 generation
+ * manifest. A consumer rejects every other version and every target that is
+ * not `appearance/<configDir>.css`; it trusts no app list outside the manifest.
+ */
+export function parseGenerationManifest(
+  text: string,
+  source = GENERATION_MANIFEST_FILE,
+): GenerationManifest {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text) as unknown;
+  } catch (error) {
+    manifestFail(source, null, `invalid JSON: ${describe(error)}`);
+  }
+  if (!isPlainObject(raw)) {
+    manifestFail(source, null, "expected a JSON object generation manifest");
+  }
+  if (raw.version !== GENERATION_MANIFEST_VERSION) {
+    manifestFail(
+      source,
+      "version",
+      `unsupported generation manifest version ${JSON.stringify(raw.version)} (expected ${GENERATION_MANIFEST_VERSION})`,
+    );
+  }
+  if (!isGenerationHash(raw.generationHash)) {
+    manifestFail(
+      source,
+      "generationHash",
+      "expected a lowercase 64-character SHA-256 generation hash",
+    );
+  }
+  if (!isPlainObject(raw.appearance)) {
+    manifestFail(source, "appearance", "expected an appearance object");
+  }
+  if (raw.appearance.tokensPath !== GENERATION_TOKENS_PATH) {
+    manifestFail(
+      source,
+      "appearance.tokensPath",
+      `expected ${JSON.stringify(GENERATION_TOKENS_PATH)}`,
+    );
+  }
+  if (!Array.isArray(raw.appearance.targets) || raw.appearance.targets.length === 0) {
+    manifestFail(source, "appearance.targets", "expected at least one target");
+  }
+
+  const targets: GenerationAppearanceTarget[] = [];
+  const seen = new Set<string>();
+  for (const [index, value] of raw.appearance.targets.entries()) {
+    const path = `appearance.targets[${index}]`;
+    if (!isPlainObject(value)) {
+      manifestFail(source, path, "expected a { configDir, path } object");
+    }
+    if (typeof value.configDir !== "string" || !CONFIG_DIR_PATTERN.test(value.configDir)) {
+      manifestFail(source, `${path}.configDir`, "expected one lowercase config-directory segment");
+    }
+    if (seen.has(value.configDir)) {
+      manifestFail(source, `${path}.configDir`, `duplicate configDir ${JSON.stringify(value.configDir)}`);
+    }
+    const expectedPath = `appearance/${value.configDir}.css`;
+    if (value.path !== expectedPath) {
+      manifestFail(
+        source,
+        `${path}.path`,
+        `expected ${JSON.stringify(expectedPath)} (the sheet for ${value.configDir})`,
+      );
+    }
+    seen.add(value.configDir);
+    targets.push(Object.freeze({ configDir: value.configDir, path: expectedPath }));
+  }
+
+  let mode: AppearanceMode | undefined;
+  if (raw.mode !== undefined) {
+    if (raw.mode !== "dark" && raw.mode !== "light") {
+      manifestFail(source, "mode", "expected dark or light");
+    }
+    mode = raw.mode;
+  }
+  if (isPlainObject(raw.skin) && raw.skin.mode !== undefined && mode !== undefined) {
+    if (raw.skin.mode !== mode) {
+      manifestFail(source, "skin.mode", "must equal the manifest mode");
+    }
+  }
+  if (isPlainObject(raw.intent) && raw.intent.mode !== undefined && mode !== undefined) {
+    if (raw.intent.mode !== mode) {
+      manifestFail(source, "intent.mode", "must equal the manifest mode");
+    }
+  }
+
+  return Object.freeze({
+    version: GENERATION_MANIFEST_VERSION,
+    generationHash: raw.generationHash,
+    appearance: Object.freeze({
+      tokensPath: GENERATION_TOKENS_PATH,
+      targets: Object.freeze(targets),
+    }),
+    ...(mode === undefined ? {} : { mode }),
+  });
+}
+
+/** The target for one app config dir; a missing target fails closed. */
+export function generationAppearanceTarget(
+  manifest: GenerationManifest,
+  configDir: string,
+  source = GENERATION_MANIFEST_FILE,
+): GenerationAppearanceTarget {
+  const target = manifest.appearance.targets.find((entry) => entry.configDir === configDir);
+  if (target === undefined) {
+    manifestFail(
+      source,
+      "appearance.targets",
+      `generation ${manifest.generationHash} does not publish ${JSON.stringify(configDir)}`,
+    );
+  }
+  return target;
+}
+
+/**
+ * The state-plane paths one app-scoped Appearance uses. There is no
+ * `$XDG_CONFIG_HOME` read path: the runtime publishes only under
+ * `$XDG_STATE_HOME/dotfiles`.
+ */
+export interface AppearancePaths {
+  /** `$XDG_STATE_HOME/dotfiles/current` — the ONE watched hop. */
+  readonly currentPath: string;
+  /** `current/manifest.json`. */
+  readonly manifestPath: string;
+  /** `$XDG_STATE_HOME/dotfiles/generations`. */
+  readonly generationsPath: string;
+  /** `current/appearance` (read through `current`, never watched). */
+  readonly currentAppearancePath: string;
+  /** `current/appearance/tokens.json` (current fallback read). */
+  readonly tokensPath: string;
+  /** `current/appearance/<configDir>.css` (current fallback read). */
+  readonly appearanceCssPath: string;
+}
+
+/** Resolve the v3 state-plane paths for one app config dir. */
+export function resolveAppearancePaths(
+  configDir: string,
+  stateHome: string,
+): AppearancePaths {
+  const stateRoot = `${stateHome}/dotfiles`;
+  const currentPath = `${stateRoot}/current`;
+  const currentAppearancePath = `${currentPath}/appearance`;
+  return {
+    currentPath,
+    manifestPath: `${currentPath}/${GENERATION_MANIFEST_FILE}`,
+    generationsPath: `${stateRoot}/generations`,
+    currentAppearancePath,
+    tokensPath: `${currentAppearancePath}/tokens.json`,
+    appearanceCssPath: `${currentAppearancePath}/${configDir}.css`,
+  };
+}
+
+/** A generation-bound apply outcome. Every outcome names the requested hash. */
+export type AppearanceApplyResult =
+  | { readonly status: "applied"; readonly genHash: string }
+  | { readonly status: "deferred"; readonly reason: string; readonly genHash: string }
+  | {
+      readonly status: "failed";
+      readonly reason: string;
+      readonly retryable: boolean;
+      readonly genHash: string;
+    };
+
+function appliedResult(genHash: string): AppearanceApplyResult {
+  return Object.freeze({ status: "applied", genHash });
+}
+
+function deferredResult(genHash: string, reason: string): AppearanceApplyResult {
+  return Object.freeze({ status: "deferred", reason, genHash });
+}
+
+function failedResult(
+  genHash: string,
+  reason: string,
+  retryable: boolean,
+): AppearanceApplyResult {
+  return Object.freeze({ status: "failed", reason, retryable, genHash });
+}
+
 /** The provider-owned half of an appearance sink (priority is supplied). */
 export interface AppearanceCssHost {
   add(css: string, priority: number): CssProviderHandle;
@@ -826,19 +1071,17 @@ export type AppearanceListener = (tokens: AppearanceTokens) => void;
 
 /** Everything the pure Appearance core needs from its host. */
 export interface AppearanceOptions {
-  /** The single watched hop: `$XDG_STATE_HOME/dotfiles/current/appearance`. */
-  watchPath: string;
-  /** Composed CSS through the stable consumer link. */
-  appearanceCssPath: string;
-  /** Resolved token document through the current generation pointer. */
-  tokensPath: string;
+  /** The app's AGS config directory; input, never a platform app list. */
+  configDir: string;
+  /** The v3 state-plane paths resolved for `configDir`. */
+  paths: AppearancePaths;
   /** The single replacing appearance provider sink. */
   sink: AppearanceCssSink;
   /** The reactive runtime used by `value(path, fallback)`. */
   runtime: ReactiveRuntime;
   /** Read a UTF-8 artifact; `null` means absent. */
   readFile(path: string): string | null;
-  /** Watch the single appearance pointer; the core starts at most one. */
+  /** Watch the single `current` hop; the core starts at most one. */
   watchFile(path: string, onChange: () => void): () => void;
   /** Report a non-fatal load/parse/apply failure (default: `console.error`). */
   onError?(error: unknown): void;
@@ -847,14 +1090,23 @@ export interface AppearanceOptions {
 /** The public Appearance consumer. */
 export interface Appearance {
   /**
-   * Read/compose/apply the current generation. Missing artifacts are a no-op;
-   * identical content is coalesced so one generation is installed once.
+   * Apply a named generation. With no argument, resolve the generation from
+   * the committed `current` pointer. A missing `current` returns `null`; every
+   * named-generation outcome carries the requested hash.
    */
-  apply(): void;
+  apply(genHash?: string): AppearanceApplyResult | null;
+  /**
+   * Apply exactly this generation. If `current` points elsewhere or the
+   * generation is absent, apply nothing and answer deferred/failed with the
+   * requested hash.
+   */
+  applyGeneration(genHash: string): AppearanceApplyResult;
+  /** The exact generation currently installed by this instance, or null. */
+  appliedHash(): string | null;
   /** The last successfully loaded token map (empty before the first load). */
   tokens(): AppearanceTokens;
   /**
-   * Subscribe to appearance changes. ONE watcher on the state pointer is
+   * Subscribe to generation changes. ONE watcher on the `current` pointer is
    * shared by every listener and stopped by the last unsubscribe. The listener
    * runs only after the new sheet has been installed.
    */
@@ -864,20 +1116,21 @@ export interface Appearance {
 }
 
 /**
- * Build an Appearance over the runtime's one pointer.
+ * Build an Appearance over the runtime's one committed generation pointer.
  *
  * Failure policy:
- * - a missing composed CSS or token document is a no-op; the previous
- *   provider and token map stay;
- * - a malformed artifact reports through `onError` and keeps the previous
- *   provider;
- * - identical CSS + token content is not applied twice (the runtime's atomic
- *   repoint plus the convenience link creation is one generation);
+ * - a missing current manifest/generation is a no-op; the previous provider
+ *   and token map stay;
+ * - a requested generation that is not `current`, or is absent, is never
+ *   applied: the result is `deferred` with the requested hash;
+ * - a malformed manifest/artifact is a retryable failure and keeps the
+ *   previous provider;
+ * - identical generation hash is installed once, even across a filesystem
+ *   event burst;
  * - the app stylesheet and GTK theme are never touched.
  */
 export function createAppearance(options: AppearanceOptions): Appearance {
-  const { watchPath, appearanceCssPath, tokensPath, sink, runtime, readFile, watchFile } =
-    options;
+  const { configDir, paths, sink, runtime, readFile, watchFile } = options;
   const report =
     options.onError ??
     ((error: unknown): void => {
@@ -885,39 +1138,9 @@ export function createAppearance(options: AppearanceOptions): Appearance {
     });
 
   let loaded: AppearanceTokens | null = null;
-  let fingerprint: string | null = null;
+  let applied: string | null = null;
   let stopWatching: (() => void) | null = null;
   const listeners = new Set<AppearanceListener>();
-
-  /**
-   * Read + validate + install. Returns `null` for a missing artifact (no-op)
-   * and `{ changed: false }` when the same generation is already installed.
-   * Throws for malformed artifacts; the caller reports and keeps the previous
-   * provider.
-   */
-  function install(): { tokens: AppearanceTokens; changed: boolean } | null {
-    const css = readFile(appearanceCssPath);
-    const tokenText = readFile(tokensPath);
-    if (css === null || tokenText === null) return null;
-
-    const tokens = parseAppearanceJson(tokenText, tokensPath);
-    validateAppearanceCss(css, appearanceCssPath);
-
-    // Content is the generation signature: the runtime never rewrites a
-    // published generation, so equal bytes mean the same appearance. This
-    // coalesces the repoint event and the convenience-link creation.
-    const nextFingerprint = `${css}\u0000${tokenText}`;
-    if (fingerprint === nextFingerprint && loaded !== null) {
-      return { tokens: loaded, changed: false };
-    }
-
-    // The composed sheet already contains palette + skin; applying it
-    // verbatim is the whole appearance apply.
-    sink.apply(css);
-    loaded = tokens;
-    fingerprint = nextFingerprint;
-    return { tokens, changed: true };
-  }
 
   function notify(tokens: AppearanceTokens): void {
     for (const listener of [...listeners]) {
@@ -929,15 +1152,163 @@ export function createAppearance(options: AppearanceOptions): Appearance {
     }
   }
 
-  function reload(): void {
+  /** Read and verify the committed manifest; throws only for malformed JSON. */
+  function readCurrentManifest(): GenerationManifest | null {
+    const text = readFile(paths.manifestPath);
+    if (text === null) return null;
+    return parseGenerationManifest(text, paths.manifestPath);
+  }
+
+  /**
+   * Resolve the requested generation, then read and install it.
+   *
+   * `current/manifest.json` is checked before and after the artifact read.
+   * Even when the immutable `generations/<genHash>/...` path exists, a pointer
+   * that no longer names the request means the request is stale: answer
+   * deferred and install nothing. The direct path is preferred for the read,
+   * so a generation tree cannot be stitched from two different commits.
+   */
+  function resolveAndInstall(genHash: string): AppearanceApplyResult {
+    if (!isGenerationHash(genHash)) {
+      return failedResult(genHash, "invalid generation hash", false);
+    }
+
+    let before: GenerationManifest | null;
     try {
-      const next = install();
-      if (next === null || !next.changed) return;
-      notify(next.tokens);
+      before = readCurrentManifest();
+    } catch (error) {
+      return failedResult(genHash, describe(error), true);
+    }
+    if (before === null) {
+      return deferredResult(genHash, "current generation is missing");
+    }
+    if (before.generationHash !== genHash) {
+      return deferredResult(
+        genHash,
+        `current generation moved to ${before.generationHash}`,
+      );
+    }
+
+    // Prefer the immutable generation directory. A missing direct manifest
+    // falls back to reading through `current` (verified again below).
+    const generationDir = `${paths.generationsPath}/${genHash}`;
+    let direct: GenerationManifest | null = null;
+    const directText = readFile(`${generationDir}/${GENERATION_MANIFEST_FILE}`);
+    if (directText !== null) {
+      try {
+        direct = parseGenerationManifest(
+          directText,
+          `${generationDir}/${GENERATION_MANIFEST_FILE}`,
+        );
+      } catch (error) {
+        return failedResult(genHash, describe(error), true);
+      }
+      if (direct.generationHash !== genHash) {
+        return failedResult(
+          genHash,
+          `generation directory ${genHash} contains manifest ${direct.generationHash}`,
+          true,
+        );
+      }
+    }
+
+    const manifest = direct ?? before;
+    const manifestSource = direct === null ? paths.manifestPath : generationDir;
+    let target: GenerationAppearanceTarget;
+    try {
+      target = generationAppearanceTarget(manifest, configDir, manifestSource);
+    } catch (error) {
+      return failedResult(genHash, describe(error), false);
+    }
+
+    const base = direct === null ? paths.currentPath : generationDir;
+    const cssPath = `${base}/${target.path}`;
+    const tokensPath = `${base}/${manifest.appearance.tokensPath}`;
+    const css = readFile(cssPath);
+    const tokenText = readFile(tokensPath);
+    if (css === null || tokenText === null) {
+      return deferredResult(
+        genHash,
+        direct === null
+          ? "current generation artifacts are missing"
+          : "requested generation is missing",
+      );
+    }
+
+    // Re-verify the commit pointer after reading. If it moved, the requested
+    // generation is stale even though its immutable files still exist.
+    let after: GenerationManifest | null;
+    try {
+      after = readCurrentManifest();
+    } catch (error) {
+      return failedResult(genHash, describe(error), true);
+    }
+    if (after === null || after.generationHash !== genHash) {
+      return deferredResult(genHash, "current generation moved during read");
+    }
+
+    let tokens: AppearanceTokens;
+    try {
+      tokens = parseAppearanceJson(tokenText, tokensPath);
+      validateAppearanceCss(css, cssPath);
+    } catch (error) {
+      return failedResult(genHash, describe(error), true);
+    }
+
+    // One apply per generation. A repeated request for the same committed
+    // generation still answers applied without installing a second provider.
+    if (applied === genHash && loaded !== null) {
+      return appliedResult(genHash);
+    }
+
+    // The composed sheet already contains palette + skin; applying it verbatim
+    // is the whole appearance apply.
+    sink.apply(css);
+    loaded = tokens;
+    applied = genHash;
+    notify(tokens);
+    return appliedResult(genHash);
+  }
+
+  function applyGeneration(genHash: string): AppearanceApplyResult {
+    try {
+      return resolveAndInstall(genHash);
     } catch (error) {
       // Never throw from a Gio signal callback: the previous provider stays.
       report(error);
+      return failedResult(genHash, describe(error), true);
     }
+  }
+
+  function apply(genHash?: string): AppearanceApplyResult | null {
+    if (genHash !== undefined) return applyGeneration(genHash);
+
+    // No explicit request: converge to the committed pointer. A commit can
+    // land between reading `current` and re-reading it inside
+    // applyGeneration; re-resolve the new pointer a bounded number of times.
+    // This is event-driven convergence, not polling.
+    let last: AppearanceApplyResult | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const current = readCurrentManifest();
+        if (current === null) return null;
+        last = applyGeneration(current.generationHash);
+      } catch (error) {
+        report(error);
+        return null;
+      }
+      if (
+        last.status !== "deferred" ||
+        !last.reason.startsWith("current generation moved")
+      ) {
+        return last;
+      }
+    }
+    return last;
+  }
+
+  function reload(): void {
+    apply();
   }
 
   const source: AppearanceTokenSource = {
@@ -948,7 +1319,7 @@ export function createAppearance(options: AppearanceOptions): Appearance {
   function subscribe(listener: AppearanceListener): () => void {
     listeners.add(listener);
     if (stopWatching === null) {
-      stopWatching = watchFile(watchPath, reload);
+      stopWatching = watchFile(paths.currentPath, reload);
     }
     let active = true;
     return (): void => {
@@ -964,13 +1335,10 @@ export function createAppearance(options: AppearanceOptions): Appearance {
   }
 
   return {
-    apply(): void {
-      try {
-        const next = install();
-        if (next !== null && next.changed) notify(next.tokens);
-      } catch (error) {
-        report(error);
-      }
+    apply,
+    applyGeneration,
+    appliedHash(): string | null {
+      return applied;
     },
 
     tokens(): AppearanceTokens {

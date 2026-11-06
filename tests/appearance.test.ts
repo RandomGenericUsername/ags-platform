@@ -16,27 +16,15 @@ import {
   readAppearanceToken,
   validateAppearanceCss,
   type AppearanceCssHost,
-  type AppearanceTokens,
 } from "../ports/appearance.ts"
-import { createAppearanceRefreshHandler } from "../ports/appearance-refresh.ts"
-import {
-  createScopedAppearance as createAppearance,
-  resolveAppearancePaths,
-} from "../adapters/appearance-scope.ts"
 import { fakeRuntime } from "./_fake-runtime.ts"
 import {
   COMPOSED_CSS,
-  COMPOSED_CSS_V2,
   GLASS_APPEARANCE_JSON,
   GLASS_MODES_JSON,
   appearanceJsonWith,
   appearanceJsonWithLeaf,
 } from "./fixtures/appearances.ts"
-
-const CONFIG_HOME = "/cfg"
-const STATE_HOME = "/state"
-const CONFIG_DIR = "ags-clipboard"
-const PATHS = resolveAppearancePaths(CONFIG_DIR, CONFIG_HOME, STATE_HOME)
 
 /**
  * A fake display that records the CSS text AND the priority the sink passed.
@@ -75,68 +63,6 @@ function fakeDisplay() {
     installedIds: () => installed.map((provider) => provider.id),
     peakInstalled: () => peakInstalled,
   }
-}
-
-/** A fake filesystem + host-side watcher registry. */
-function fakeFiles(initial: Readonly<Record<string, string>>) {
-  const files = new Map(Object.entries(initial))
-  const reads: string[] = []
-  const watchers: Array<{ path: string; onChange: () => void; active: boolean }> = []
-  return {
-    readFile(path: string): string | null {
-      reads.push(path)
-      return files.has(path) ? (files.get(path) as string) : null
-    },
-    watchFile(path: string, onChange: () => void): () => void {
-      const watcher = { path, onChange, active: true }
-      watchers.push(watcher)
-      return (): void => {
-        watcher.active = false
-      }
-    },
-    write(path: string, content: string): void {
-      files.set(path, content)
-    },
-    remove(path: string): void {
-      files.delete(path)
-    },
-    emit(path: string): void {
-      for (const watcher of watchers) {
-        if (watcher.active && watcher.path === path) watcher.onChange()
-      }
-    },
-    reads,
-    watchers,
-    activeWatchers: () => watchers.filter((watcher) => watcher.active),
-  }
-}
-
-function setup(
-  overrides: {
-    css?: string | null
-    tokens?: string | null
-  } = {},
-) {
-  const display = fakeDisplay()
-  const files = fakeFiles({
-    [PATHS.appearanceCssPath]: overrides.css ?? COMPOSED_CSS,
-    [PATHS.tokensPath]: overrides.tokens ?? GLASS_APPEARANCE_JSON,
-  })
-  if (overrides.css === null) files.remove(PATHS.appearanceCssPath)
-  if (overrides.tokens === null) files.remove(PATHS.tokensPath)
-
-  const errors: unknown[] = []
-  const appearance = createAppearance({
-    configDir: CONFIG_DIR,
-    configHome: CONFIG_HOME,
-    stateHome: STATE_HOME,
-    sink: createReplacingAppearanceCssSink(display.host),
-    runtime: fakeRuntime(),
-    readFile: files.readFile,
-    watchFile: files.watchFile,
-    onError: (error) => errors.push(error),
-  })
-  return { appearance, display, files, errors }
 }
 
 test("v2 token documents parse with the five groups and namespaced layout", () => {
@@ -194,6 +120,27 @@ test("appearanceValue reads dotted paths and falls back for missing/type-invalid
   )
 })
 
+test("createAppearanceValue updates in place when the source publishes a new map", () => {
+  let current = parseAppearanceJson(GLASS_APPEARANCE_JSON)
+  const listeners: Array<(tokens: typeof current) => void> = []
+  const source = {
+    tokens: () => current,
+    subscribe: (listener: (tokens: typeof current) => void) => {
+      listeners.push(listener)
+      return () => {}
+    },
+  }
+  const radius = createAppearanceValue(source, fakeRuntime(), "surface.panel.radius", 12)
+  assert.equal(radius(), 18)
+
+  current = parseAppearanceJson(
+    appearanceJsonWithLeaf("surface", "panel", "radius", 24),
+  )
+  for (const listener of listeners) listener(current)
+  assert.equal(radius(), 24)
+  assert.equal(radius.peek(), 24)
+})
+
 test("the replacing sink applies verbatim at USER priority and adds before removing", () => {
   assert.equal(APPEARANCE_PROVIDER_PRIORITY, 800)
   const display = fakeDisplay()
@@ -207,122 +154,6 @@ test("the replacing sink applies verbatim at USER priority and adds before remov
   assert.deepEqual(display.ops, ["add:1", "add:2", "remove:1"])
   assert.equal(display.peakInstalled(), 2, "the next provider must coexist with the old one")
   assert.deepEqual(display.css(), ["second"])
-})
-
-test("the core installs the composed sheet verbatim and exposes value() on the app", () => {
-  const { appearance, display } = setup()
-
-  const radius = appearance.value("surface.panel.radius", 12)
-  assert.equal(radius(), 12, "before the first apply the fallback is visible")
-
-  appearance.apply()
-  assert.equal(display.installed.length, 1)
-  assert.equal(display.css()[0], COMPOSED_CSS, "the composed sheet is applied verbatim")
-  assert.equal(display.allPriorities[0], 800)
-  assert.equal(radius(), 18)
-  assert.equal(radius.peek(), 18)
-  assert.equal(appearance.value("layout.ags.panel-width", 0)(), 380)
-})
-
-test("only current/appearance is watched and a burst applies one generation once", () => {
-  const { appearance, display, files, errors } = setup()
-
-  // Apply the initial generation before subscribing, so the listener count
-  // below isolates the rename burst.
-  appearance.apply()
-  assert.deepEqual(display.ops, ["add:1"])
-
-  const seen: AppearanceTokens[] = []
-  const unsubscribe = appearance.subscribe((tokens) => seen.push(tokens))
-
-  assert.deepEqual(
-    files.activeWatchers().map((watcher) => watcher.path),
-    [PATHS.watchPath],
-    "the config appearance.css link is a read path, not a watch path",
-  )
-  assert.equal(PATHS.watchPath, "/state/dotfiles/current/appearance")
-  assert.equal(PATHS.appearanceCssPath, "/cfg/ags-clipboard/appearance.css")
-  assert.equal(PATHS.tokensPath, "/state/dotfiles/current/appearance/tokens.json")
-
-  // Simulate one atomic repoint plus the convenience-link creation: several
-  // events, one generation, exactly one provider swap.
-  files.write(PATHS.appearanceCssPath, COMPOSED_CSS_V2)
-  files.emit(PATHS.watchPath)
-  files.emit(PATHS.watchPath)
-  files.emit(PATHS.watchPath)
-
-  assert.equal(errors.length, 0)
-  assert.deepEqual(display.ops, ["add:1", "add:2", "remove:1"])
-  assert.equal(display.installed.length, 1)
-  assert.match(display.css()[0], /padding: 15px;/)
-  assert.equal(seen.length, 1, "listeners run once per generation")
-
-  // Another event for the SAME bytes is not a new generation.
-  files.emit(PATHS.watchPath)
-  assert.deepEqual(display.ops, ["add:1", "add:2", "remove:1"])
-  assert.equal(seen.length, 1)
-
-  unsubscribe()
-  assert.equal(files.activeWatchers().length, 0)
-})
-
-test("value() updates in place when a later generation changes tokens", () => {
-  const { appearance, files } = setup()
-  const radius = appearance.value("surface.panel.radius", 12)
-  const unsubscribe = appearance.subscribe(() => {})
-
-  appearance.apply()
-  assert.equal(radius(), 18)
-
-  files.write(
-    PATHS.tokensPath,
-    appearanceJsonWithLeaf("surface", "panel", "radius", 24),
-  )
-  files.emit(PATHS.watchPath)
-
-  assert.equal(radius(), 24)
-  assert.equal(radius.peek(), 24)
-  unsubscribe()
-})
-
-test("missing appearance artifacts are a no-op and keep the value fallback", () => {
-  for (const missing of ["css", "tokens"] as const) {
-    const { appearance, display, errors } = setup(
-      missing === "css" ? { css: null } : { tokens: null },
-    )
-
-    appearance.apply()
-
-    assert.equal(display.installed.length, 0, `${missing} missing: no provider`)
-    assert.equal(display.ops.length, 0)
-    assert.equal(errors.length, 0, "missing is not malformed")
-    assert.equal(appearance.value("surface.panel.radius", 12)(), 12)
-  }
-})
-
-test("a malformed refresh keeps the previous provider and reports through onError", () => {
-  const { appearance, display, files, errors } = setup()
-  appearance.apply()
-  const unsubscribe = appearance.subscribe(() => {})
-
-  files.write(PATHS.tokensPath, "{ not json")
-  files.emit(PATHS.watchPath)
-
-  assert.equal(errors.length, 1)
-  assert.ok(errors[0] instanceof AppearanceParseError)
-  assert.match(String(errors[0]), /invalid JSON/)
-  assert.deepEqual(display.ops, ["add:1"], "the previous provider stays installed")
-  assert.equal(appearance.tokens().values["surface.panel.radius"], 18)
-
-  files.write(PATHS.tokensPath, GLASS_APPEARANCE_JSON)
-  files.write(PATHS.appearanceCssPath, ".x { color: #ff0000; }\n")
-  files.emit(PATHS.watchPath)
-
-  assert.equal(errors.length, 2)
-  assert.match(String(errors[1]), /literal hex/)
-  assert.deepEqual(display.ops, ["add:1"])
-
-  unsubscribe()
 })
 
 test("v2 parsing rejects hex, transition, structure/variant, unknown roles and units", () => {
@@ -404,87 +235,7 @@ test("composed CSS validation rejects literal hex, transitions and structure pro
   )
 })
 
-test("the refresh handler re-applies appearance, runs app work once per hash, and answers JSON", async () => {
-  let applies = 0
-  const worked: string[] = []
-  const responses: string[] = []
-  const appearance = {
-    apply() {
-      applies += 1
-    },
-  }
-  const handler = createAppearanceRefreshHandler(appearance, (hash) => {
-    worked.push(hash)
-    return { status: "applied" }
-  })
-
-  const request = (argv: string[]): void => handler(argv, (response) => responses.push(response))
-
-  request(["palette-refresh", "hash-one"])
-  assert.equal(applies, 1, "appearance.apply() runs before app work")
-  assert.deepEqual(worked, ["hash-one"])
-  assert.equal(responses.length, 1)
-  assert.deepEqual(JSON.parse(responses[0]), { ok: true })
-
-  // Same hash: the whole appearance is still re-applied (cheap/coalesced), but
-  // the app-owned work is idempotent and does not run again.
-  request(["palette-refresh", "hash-one"])
-  assert.equal(applies, 2)
-  assert.deepEqual(worked, ["hash-one"])
-  assert.deepEqual(JSON.parse(responses[1]), { ok: true })
-
-  request(["palette-refresh", "hash-two"])
-  assert.equal(applies, 3)
-  assert.deepEqual(worked, ["hash-one", "hash-two"])
-  assert.deepEqual(JSON.parse(responses[2]), { ok: true })
-
-  // Exactly one response even for a malformed request.
-  request(["palette-refresh"])
-  assert.equal(responses.length, 4)
-  const malformed = JSON.parse(responses[3]) as { ok: boolean; retryable: boolean }
-  assert.equal(malformed.ok, false)
-  assert.equal(malformed.retryable, false)
-})
-
-test("the refresh handler preserves deferred/failed work and does not advance the hash", async () => {
-  let applies = 0
-  const worked: string[] = []
-  let outcome: "deferred" | "failed" | "applied" = "deferred"
-  const responses: string[] = []
-  const handler = createAppearanceRefreshHandler(
-    { apply: () => void (applies += 1) },
-    (hash) => {
-      worked.push(hash)
-      if (outcome === "deferred") return { status: "deferred", reason: "unsaved edits" }
-      if (outcome === "failed") return { status: "failed", error: "boom", retryable: true }
-      return { status: "applied" }
-    },
-  )
-  const request = (hash: string): void =>
-    handler(["palette-refresh", hash], (response) => responses.push(response))
-
-  request("hash-a")
-  assert.equal(applies, 1)
-  assert.deepEqual(JSON.parse(responses[0]), { ok: true, deferred: "unsaved edits" })
-
-  // A deferred outcome did not advance the hash, so the app work is retried.
-  request("hash-a")
-  assert.equal(applies, 2)
-  assert.equal(worked.length, 2)
-
-  outcome = "failed"
-  request("hash-a")
-  assert.deepEqual(JSON.parse(responses[2]), { ok: false, error: "boom", retryable: true })
-  assert.equal(worked.length, 3)
-
-  outcome = "applied"
-  request("hash-a")
-  assert.deepEqual(JSON.parse(responses[3]), { ok: true })
-  request("hash-a")
-  assert.equal(worked.length, 4, "the applied hash is now idempotent")
-})
-
-test("the adapter owns one monitor on current/appearance, USER priority and module refs", () => {
+test("the adapter owns one monitor on current, USER priority and module refs", () => {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
   const adapter = readFileSync(resolve(root, "adapters/appearance.ts"), "utf8")
   const scope = readFileSync(resolve(root, "adapters/appearance-scope.ts"), "utf8")
@@ -502,7 +253,7 @@ test("the adapter owns one monitor on current/appearance, USER priority and modu
   assert.match(adapter, /activeMonitors\.add\(monitor\)/)
   assert.match(adapter, /activeMonitors\.delete\(monitor\)/)
   assert.match(adapter, /const activeProviders = new Set<CssProviderHandle>\(\)/)
-  assert.match(adapter, /APPEARANCE_WATCH_POINTER = "dotfiles\/current\/appearance"/)
+  assert.match(adapter, /APPEARANCE_WATCH_POINTER = "dotfiles\/current"/)
   assert.match(adapter, /export function createAppearance\(options: AppearanceAdapterOptions\): Appearance/)
   assert.match(adapter, /export const appearance = createAppearance\(\{ configDir: "ags" \}\)/)
 
@@ -511,12 +262,13 @@ test("the adapter owns one monitor on current/appearance, USER priority and modu
   assert.match(adapter, /add_provider_for_display\(defaultDisplay\(\), provider, priority\)/)
   assert.doesNotMatch(adapter, /STYLE_PROVIDER_PRIORITY_APPLICATION/)
 
-  // The watch path is the state pointer; the app config link is a read path.
-  assert.match(scope, /watchPath: pointer/)
-  assert.match(scope, /appearanceCssPath: `\$\{configHome\}\/\$\{configDir\}\/appearance\.css`/)
-  assert.match(scope, /tokensPath: `\$\{pointer\}\/tokens\.json`/)
-  assert.doesNotMatch(scope, /watchPath:.*appearanceCssPath/)
-
+  // State-only reads: no XDG_CONFIG_HOME convenience link and no v1/v2 skin.
+  assert.doesNotMatch(adapter, /get_user_config_dir/)
+  assert.doesNotMatch(scope, /configHome|XDG_CONFIG_HOME|skin\.css|skin\.json/)
+  assert.match(port, /watchFile\(paths\.currentPath, reload\)/)
+  assert.match(port, /generationsPath/)
+  assert.match(port, /manifestPath/)
+  assert.doesNotMatch(port, /appearanceCssPath: `\$\{configHome\}/)
   assert.match(port, /APPEARANCE_PROVIDER_PRIORITY = 800/)
   assert.match(port, /host\.add\(css, APPEARANCE_PROVIDER_PRIORITY\)/)
 })

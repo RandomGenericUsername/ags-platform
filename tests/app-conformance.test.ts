@@ -31,6 +31,13 @@ const HANDLER_SOURCE = [
   "})",
 ].join("\n")
 
+const V3_HANDLER_SOURCE = [
+  'import { createAppearanceRefreshHandler } from "ags-platform"',
+  "app.start({",
+  "  requestHandler: createAppearanceRefreshHandler(appearance, () => ({ status: \"applied\" })),",
+  "})",
+].join("\n")
+
 /** A complete app repo. Each test deletes or mutates one thing. */
 function baseFiles(): Record<string, string> {
   return {
@@ -82,6 +89,13 @@ test("a complete live app repo passes the template gate", () => {
   assert.equal(report.ok, true, JSON.stringify(report.issues))
   assert.equal(report.manifest?.mode, "live")
   assert.deepEqual(report.issues, [])
+})
+
+test("a live app with the v3 appearance-refresh handler passes", () => {
+  const files = baseFiles()
+  files["app.tsx"] = V3_HANDLER_SOURCE
+  const report = audit(files)
+  assert.equal(report.ok, true, JSON.stringify(report.issues))
 })
 
 test("a restart app passes without a palette-refresh handler", () => {

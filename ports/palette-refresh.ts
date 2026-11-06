@@ -1,6 +1,11 @@
 /**
- * The app-side half of the fixed `palette-refresh` protocol (spine AD-27;
+ * The app-side half of the v2 `palette-refresh` protocol (spine AD-27;
  * contracts `ags-app-refresh.md` and `schemas/ags-app-refresh-result.schema.json`).
+ *
+ * @deprecated v1.0.0 — v2 only. Use `createAppearanceRefreshHandler` from
+ * `./appearance-refresh` for the generation-bound `appearance-refresh` v3
+ * protocol. This helper remains exported while apps migrate; the v3 handler
+ * does not accept its `{"ok":true}` result.
  *
  * AGS's request transport is a STRING: the app registers
  * `requestHandler(argv, res)` and answers with `res(JSON.stringify(...))`.

@@ -4,8 +4,9 @@
  *
  * Every app repo carries the same dev flow: AGENTS.md, tickets
  * (LIFECYCLE/INDEX/_template), the worktree guard, Makefile, CI, README,
- * `app.manifest.json`, tests and — for live apps — a `palette-refresh`
- * handler. This module owns the checks; the host-side reader lives in
+ * `app.manifest.json`, tests and — for live apps — an `appearance-refresh`
+ * handler (the v2 `palette-refresh` helper remains accepted during the app
+ * migration). This module owns the checks; the host-side reader lives in
  * `../conformance/app-conformance` (Node `fs`) so the core stays pure and the
  * same logic can be exercised with an in-memory tree.
  *
@@ -25,6 +26,7 @@ import {
   parseAgsAppManifest,
   type AgsAppManifest,
 } from "./app-manifest.ts";
+import { APPEARANCE_REFRESH_COMMAND } from "./appearance-refresh.ts";
 import { PALETTE_REFRESH_COMMAND } from "./palette-refresh.ts";
 
 /** The files every app repo carries (AD-33's template). */
@@ -99,8 +101,14 @@ const NON_SOURCE_PREFIXES = [
   ".github/",
 ];
 
-/** The tokens any handler path uses: the command literal, its constant, or the helper. */
+/**
+ * The tokens any handler path uses: the v3 command/helper first, plus the
+ * deprecated v2 palette-refresh names accepted only during app migration.
+ */
 const HANDLER_TOKENS = [
+  APPEARANCE_REFRESH_COMMAND,
+  "APPEARANCE_REFRESH_COMMAND",
+  "createAppearanceRefreshHandler",
   PALETTE_REFRESH_COMMAND,
   "PALETTE_REFRESH_COMMAND",
   "createPaletteRefreshHandler",
@@ -237,14 +245,14 @@ export function checkAppRepo(
         code: "live-handler-missing",
         path: "app.tsx",
         message:
-          "a live app must implement the palette-refresh command or use createPaletteRefreshHandler",
+          "a live app must implement the appearance-refresh command or use createAppearanceRefreshHandler (palette-refresh is deprecated)",
       });
     }
     if (!source.includes("requestHandler")) {
       issues.push({
         code: "live-handler-registration-missing",
         path: "app.tsx",
-        message: "the palette-refresh handler must be registered as requestHandler",
+        message: "the appearance-refresh handler must be registered as requestHandler",
       });
     }
   }

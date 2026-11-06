@@ -1,18 +1,29 @@
 /**
- * The display-side Appearance adapter (contracts `v0.7.0`).
+ * The display-side Appearance adapter (contracts `v0.8.0`, Generations v3).
  *
  * The pure port + core live in `../ports/appearance`; this file owns the host:
- * the XDG pointers, the display, the reactive runtime and the ONE
+ * the XDG state paths, the display, the reactive runtime and the ONE
  * `Gio.FileMonitor`.
  *
- * ## One pointer, one hop
+ * ## One state plane, one hop
  *
- * The monitor is created on `$XDG_STATE_HOME/dotfiles/current/appearance`, the
- * entry the runtime actually repoints. The per-app
- * `$XDG_CONFIG_HOME/<configDir>/appearance.css` is a stable convenience link
- * INTO the current generation and is read after the event, never watched. This
- * is the v1 defect fixed: watching the stable first hop never saw a lower link
- * move.
+ * The consumer reads only:
+ *
+ * - `$XDG_STATE_HOME/dotfiles/current/manifest.json`;
+ * - `$XDG_STATE_HOME/dotfiles/current/appearance/<configDir>.css`;
+ * - `$XDG_STATE_HOME/dotfiles/current/appearance/tokens.json`.
+ *
+ * The monitor is created on `$XDG_STATE_HOME/dotfiles/current`, the ONE
+ * committed pointer the runtime swaps atomically. It is never created on
+ * `current/appearance`, on `$XDG_CONFIG_HOME/<configDir>/appearance.css`, on an
+ * app tag or on a v1/v2 skin path.
+ *
+ * ## Generation-bound apply
+ *
+ * `apply()` resolves `current`; `applyGeneration(genHash)` applies exactly the
+ * requested generation (or defers when `current` moved). The generation
+ * directory is preferred, with a verified `current` fallback. `appliedHash()`
+ * names the installed generation.
  *
  * ## One provider, USER priority, last installed
  *
@@ -32,9 +43,8 @@
  *
  * ## One apply per generation
  *
- * A repoint produces a burst and the runtime may also create the convenience
- * link. The core coalesces identical CSS + token content, so a generation is
- * applied once; the 50 ms debounce collapses the filesystem burst.
+ * A commit produces a filesystem burst; the core coalesces by generation hash,
+ * so one generation is applied once. The 50 ms debounce collapses the burst.
  */
 
 import Gdk from "gi://Gdk?version=4.0";
@@ -53,20 +63,26 @@ import { createAppearanceRefreshHandler } from "../ports/appearance-refresh";
 import type { CssProviderHandle } from "../ports/theme";
 import { createScopedAppearance } from "./appearance-scope";
 
-//: Runtime-owned pointer, mirrored here as a constant:
-//: state/dotfiles/current/appearance (the ONLY monitored hop).
-export const APPEARANCE_WATCH_POINTER = "dotfiles/current/appearance";
+//: Runtime-owned commit pointer, mirrored here as a constant:
+//: state/dotfiles/current (the ONLY monitored hop).
+export const APPEARANCE_WATCH_POINTER = "dotfiles/current";
 
-/** `$XDG_STATE_HOME/dotfiles/current/appearance` — the one repointed hop. */
+/** `$XDG_STATE_HOME/dotfiles/current` — the one committed generation pointer. */
 export const APPEARANCE_WATCH_PATH = `${GLib.get_user_state_dir()}/${APPEARANCE_WATCH_POINTER}`;
 
+/** The generation self-check behind the pointer. */
+export const APPEARANCE_MANIFEST_PATH = `${APPEARANCE_WATCH_PATH}/manifest.json`;
+
 /** The resolved token document behind the current pointer. */
-export const APPEARANCE_TOKENS_PATH = `${APPEARANCE_WATCH_PATH}/tokens.json`;
+export const APPEARANCE_TOKENS_PATH = `${APPEARANCE_WATCH_PATH}/appearance/tokens.json`;
 
-/** The bar's composed sheet (`configDir = ags`). */
-export const APPEARANCE_CSS_PATH = `${GLib.get_user_config_dir()}/ags/appearance.css`;
+/** The bar's composed sheet (`configDir = ags`) through the state pointer. */
+export const APPEARANCE_CSS_PATH = `${APPEARANCE_WATCH_PATH}/appearance/ags.css`;
 
-//: Collapse the burst of filesystem events one atomic symlink repoint emits.
+/** The immutable generations directory. */
+export const APPEARANCE_GENERATIONS_PATH = `${GLib.get_user_state_dir()}/dotfiles/generations`;
+
+//: Collapse the burst of filesystem events one atomic symlink commit emits.
 const RELOAD_DEBOUNCE_MS = 50;
 
 /**
@@ -119,10 +135,10 @@ const gtkAppearanceHost: AppearanceCssHost = {
 };
 
 /**
- * ONE `Gio.FileMonitor` on the appearance pointer, with a 50 ms debounce. The
- * core starts it on the first subscriber and releases it on the last
- * unsubscribe. It is retained in `activeMonitors` while live so it cannot be
- * GC-collected between events.
+ * ONE `Gio.FileMonitor` on the committed `current` pointer, with a 50 ms
+ * debounce. The core starts it on the first subscriber and releases it on the
+ * last unsubscribe. It is retained in `activeMonitors` while live so it cannot
+ * be GC-collected between events.
  */
 function watchAppearance(path: string, onChange: () => void): () => void {
   let monitor: Gio.FileMonitor;
@@ -185,7 +201,7 @@ export interface AppearanceAdapterOptions {
   runtime?: typeof agsRuntime;
   /** Override the artifact reader (default: GLib). */
   readFile?(path: string): string | null;
-  /** Override the artifact watcher (default: debounced Gio monitor). */
+  /** Override the artifact watcher (default: debounced Gio monitor on `current`). */
   watchFile?(path: string, onChange: () => void): () => void;
   /** Report a non-fatal load/parse/apply failure (default: `console.error`). */
   onError?(error: unknown): void;
@@ -194,21 +210,21 @@ export interface AppearanceAdapterOptions {
 /**
  * Build an Appearance scoped to one AGS app's config directory.
  *
- * Watches `$XDG_STATE_HOME/dotfiles/current/appearance`, reads
- * `$XDG_CONFIG_HOME/<configDir>/appearance.css` and the pointer's
- * `tokens.json`, and installs the composed sheet as one USER-priority
- * provider.
+ * Watches `$XDG_STATE_HOME/dotfiles/current`, verifies
+ * `current/manifest.json`, reads the composed sheet + tokens from the state
+ * generation, and installs the sheet as one USER-priority provider.
  *
  * ```ts
  * const appearance = createAppearance({ configDir: "ags-clipboard" })
- * appearance.apply()
+ * appearance.apply()                       // apply the committed generation
+ * appearance.applyGeneration(genHash)      // apply an explicit generation
+ * appearance.appliedHash()                 // exact installed hash
  * const radius = appearance.value("surface.panel.radius", 12)
  * ```
  */
 export function createAppearance(options: AppearanceAdapterOptions): Appearance {
   return createScopedAppearance({
     configDir: options.configDir,
-    configHome: GLib.get_user_config_dir(),
     stateHome: GLib.get_user_state_dir(),
     // A fresh sink per instance: the provider handle is instance state.
     sink: options.sink ?? createReplacingAppearanceSink(),
