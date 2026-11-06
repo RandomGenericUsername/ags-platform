@@ -9,6 +9,84 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-06
+
+Generations v3: state-only appearance consumption and generation-bound
+apply/ack for contracts `v0.8.0`. Ticket:
+[`REQ-019`](./tickets/REQ-019-generations-v3/ticket.md).
+
+### Added
+
+- **`ports/appearance.ts` v3 state plane.** `parseGenerationManifest` verifies
+  `version: 3`, a lowercase 64-hex `generationHash`,
+  `appearance.tokensPath = "appearance/tokens.json"` and unique
+  `appearance.targets` whose paths are exactly
+  `appearance/<configDir>.css`. `generationAppearanceTarget` fails closed for a
+  generation that does not publish the consumer's `configDir`.
+  `resolveAppearancePaths(configDir, stateHome)` returns only
+  `state/dotfiles/current`, its `manifest.json`, `generations/` and the
+  current appearance/token paths.
+- **`applyGeneration(genHash)` and `apply(genHash?)`.** The core prefers the
+  immutable `generations/<genHash>/...` tree; a `current` fallback verifies
+  `manifest.generationHash` before and after the artifact read. A stale
+  pointer, missing generation, corrupt generation manifest or hash mismatch
+  installs nothing and returns `deferred`/`failed` with the requested hash.
+  `appliedHash()` exposes the exact installed generation and repeated
+  requests for one generation install exactly one provider.
+- **`createAppearanceRefreshHandler` v3.** Implements
+  `["appearance-refresh", "<genHash>"]` and answers only
+  `{"applied":"<genHash>"}`,
+  `{"deferred":"reason","genHash":"<genHash>"}` or
+  `{"failed":"reason","retryable":bool,"genHash":"<genHash>"}`. Malformed
+  requests, old `palette-refresh` commands and returned `{"ok":true}` work
+  results are rejected; in-flight requests answer `deferred:"busy"`.
+- `APPEARANCE_MANIFEST_PATH` and `APPEARANCE_GENERATIONS_PATH` constants;
+  `APPEARANCE_WATCH_POINTER` is now `dotfiles/current`.
+
+### Changed
+
+- **State-only reads.** `createAppearance({ configDir })` reads
+  `current/manifest.json`, `current/appearance/<configDir>.css` and
+  `current/appearance/tokens.json`. The
+  `$XDG_CONFIG_HOME/<configDir>/appearance.css` convenience link and all v1/v2
+  skin paths are no longer read by the Appearance consumer.
+- **One watched hop.** The adapter monitors
+  `$XDG_STATE_HOME/dotfiles/current` with
+  `Gio.FileMonitorFlags.WATCH_MOVES` and a 50 ms debounce; monitors/providers
+  remain module-scoped. `current/appearance` is no longer a watch proxy.
+- **One provider per generation.** The composed sheet remains verbatim at
+  USER priority 800 with add-before-remove, but idempotence is keyed by
+  `genHash` instead of CSS bytes, so a generation is applied once.
+- `ports/app-conformance.ts` accepts the v3 `appearance-refresh` command/helper
+  and keeps the deprecated `palette-refresh` names for the migration window.
+- `README.md` leads with Generations v3 and the v3 refresh protocol.
+
+### Deprecated
+
+- `createPaletteRefreshHandler` and `PALETTE_REFRESH_COMMAND` remain exported
+  for the v2 app migration. The v3 handler does not use them and does not
+  accept their `{"ok":true}` result. The v1 `theme`/`skin` aliases remain
+  unchanged.
+
+### Tests
+
+- New `tests/appearance-v3.test.ts` covers manifest verification, state-only
+  path resolution, direct generation-path apply, v3 token reads, stale pointer
+  → deferred, hash-mismatch never applied, pointer move during read, exactly
+  one apply per generation, watch `current` only, missing-generation fallback,
+  the v3 handler ack/deferred/failed/invalid-work/in-flight cases and no
+  config-home read.
+- `tests/appearance.test.ts` keeps the v2 token/CSS vocabulary and sink tests
+  and now pins the state-only adapter/path contract.
+
+### Release
+
+- Annotated tag `v1.0.0` on the ticket branch's closeout commit.
+- `package.json` remains `private` at `0.0.0`; the tag is the release identity.
+- Gates: targeted appearance suites, `make test` (128 pass), `make exports`
+  (2 pass), `make typecheck-tests` (0 errors) and local `make typecheck`
+  (0 in-tree errors; 7 tolerated `/usr/share/ags/js` errors) are green.
+
 ## [0.9.1] - 2026-11-06
 
 REQ-018: accept theme-producer v0.6.0 palette mode metadata without degrading

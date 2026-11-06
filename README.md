@@ -18,14 +18,15 @@ notifications. The platform depends on `contracts`; it never depends on an app.
 
 ## Releases
 
-Current release: **`v0.9.0`** — unified Appearance v2 consumer: one provider,
-one monitor on `$XDG_STATE_HOME/dotfiles/current/appearance`, one whole-
-appearance apply and a refresh handler that always re-applies palette + skin.
-The v1 `theme`/`skin` exports remain as deprecated aliases for one release.
-This follows the app-scoped Skin factory, the Skin port + adapter, the Theme
-provider role API (`palette()` + `subscribe()`) and the app
-manifest/palette-refresh/conformance helpers. See
-[`CHANGELOG.md`](./CHANGELOG.md).
+Current release: **`v1.0.0`** — Generations v3 consumer (contracts `v0.8.0`):
+one immutable `state/generations/<genHash>/`, one watched `state/current` hop,
+one provider at USER priority, and generation-bound
+`appearance-refresh <genHash>` apply/ack. The platform reads only
+`$XDG_STATE_HOME/dotfiles/current/manifest.json`,
+`current/appearance/<configDir>.css` and `current/appearance/tokens.json`; it
+never reads the v2 config-link or skin paths. The v2 `palette-refresh` helper
+and the v1 `theme`/`skin` aliases remain exported as deprecated migration
+helpers. See [`CHANGELOG.md`](./CHANGELOG.md).
 
 The package stays `private` and `package.json` keeps the historical `0.0.0`;
 the annotated git tag is the release identity. `ags-apps` pins
@@ -39,12 +40,13 @@ is [`../dotfiles-v3/docs/WORKSPACE.md`](../dotfiles-v3/docs/WORKSPACE.md).
 ## App contract helpers
 
 Every standalone AGS app ships `app.manifest.json` and, when `mode: live`, answers the
-`palette-refresh` request. The platform carries the app-side seam for both, plus the
-template-conformance gate (spine AD-26/AD-27/AD-33/AD-34; contracts REQ-009):
+generation-bound `appearance-refresh <genHash>` request. The platform carries the
+app-side seam for both, plus the template-conformance gate (spine
+AD-26/AD-27/AD-33/AD-34; contracts REQ-009/REQ-016):
 
 ```ts
 import {
-  createPaletteRefreshHandler,
+  createAppearanceRefreshHandler,
   type AgsAppManifest,
 } from "ags-platform"
 
@@ -58,11 +60,8 @@ const manifest: AgsAppManifest = {
 }
 
 app.start({
-  requestHandler: createPaletteRefreshHandler((appearanceHash) => {
-    if (appearanceHash === appliedHash) return { status: "applied" }
-    if (busyWithUserWork) return { status: "deferred", reason: "unsaved edits" }
-    theme.apply()
-    appliedHash = appearanceHash
+  requestHandler: createAppearanceRefreshHandler(appearance, () => {
+    refreshDerivedSurfaces()   // icons / caches only — never theme.apply()
     return { status: "applied" }
   }),
 })
@@ -71,12 +70,19 @@ app.start({
 - `AgsAppManifest` + `validateAgsAppManifest` mirror the contracts schema: `schemaVersion: 1`,
   `app`/`instance`/`configDir` are one lowercase path segment, and `mode: restart` is invalid with
   `holdsUnsavedState: true`.
-- `createPaletteRefreshHandler(refresh)` validates argv, calls the refresh once, and writes exactly
-  one JSON-encoded string: `{"ok":true}`, `{"ok":true,"deferred":"..."}` or
-  `{"ok":false,"error":"...","retryable":bool}`. A concurrent request gets `busy`; throws/rejections
-  become retryable failures; malformed requests and invalid result objects become terminal failures.
-  The helper never answers `ok:true` before the refresh has completed and never schedules follow-up
-  work itself.
+- `createAppearanceRefreshHandler(appearance, work?)` validates exactly
+  `["appearance-refresh", "<64-hex genHash>"]`, resolves THAT generation, and writes exactly one
+  JSON-encoded string: `{"applied":"<genHash>"}`,
+  `{"deferred":"reason","genHash":"<genHash>"}` or
+  `{"failed":"reason","retryable":bool,"genHash":"<genHash>"}`. A stale pointer or absent
+  generation is deferred with the requested hash; `{"ok":true}` is never produced or accepted. A
+  concurrent request gets `{"deferred":"busy","genHash":"<genHash>"}`; throws/rejections become
+  retryable failures; malformed requests and invalid work objects become terminal failures. The
+  helper never answers applied before the apply/work completes and never schedules follow-up work
+  itself.
+- `createPaletteRefreshHandler(refresh)` remains exported as the **deprecated v2 helper** during
+  app migration. It still produces the old `{"ok":true}` family and must not be used with the v3
+  `appearance-refresh` transport.
 - `checkAppRepo(reader)` (`ags-platform/conformance/app-conformance` for the Node adapter) validates
   the app template: required files, manifest shape/identity fields, a live handler in app source,
   tests and the ticket flow. The deployed identity equality is runtime-owned.
@@ -87,14 +93,14 @@ App repos can use the conformance CLI in their own gate:
 node node_modules/ags-platform/conformance/check.ts .
 ```
 
-## Appearance (v2)
+## Appearance (Generations v3)
 
-> **One provider, one monitor, one apply.** Appearance replaces the split
-> Theme + Skin pair. The runtime publishes palette + skin + mode as one
-> immutable generation behind the single atomically repointed hop
-> `$XDG_STATE_HOME/dotfiles/current/appearance`. Every app installs ONE
-> composed `Gtk.CssProvider` at `GTK_STYLE_PROVIDER_PRIORITY_USER` = **800**,
-> last-installed, and re-reads the generation on that one pointer.
+> **One generation, one watched hop, one provider.** Appearance replaces the
+> split Theme + Skin pair. The runtime commits palette + skin + mode as one
+> immutable `$XDG_STATE_HOME/dotfiles/generations/<genHash>/` directory and
+> swaps `state/current` atomically. Every app installs ONE composed
+> `Gtk.CssProvider` at `GTK_STYLE_PROVIDER_PRIORITY_USER` = **800**,
+> last-installed, and resolves that exact generation.
 
 ```ts
 import {
@@ -104,7 +110,9 @@ import {
 } from "ags-platform"
 
 const appAppearance = createAppearance({ configDir: "ags-clipboard" })
-appAppearance.apply()           // missing artifacts are a no-op
+appAppearance.apply()                       // apply the committed generation
+// or: appAppearance.applyGeneration(genHash) // apply exactly this generation
+appAppearance.appliedHash()                 // exact installed hash, or null
 
 const radius = appAppearance.value("surface.panel.radius", 12)
 const width  = appAppearance.value("layout.ags-clipboard.card-width", 360)
@@ -118,38 +126,44 @@ app.start({
 })
 ```
 
-- **Paths.** Watch ONLY
-  `$XDG_STATE_HOME/dotfiles/current/appearance` (`APPEARANCE_WATCH_PATH`,
-  `APPEARANCE_WATCH_POINTER = "dotfiles/current/appearance"`). Read
-  `$XDG_CONFIG_HOME/<configDir>/appearance.css` and
-  `current/appearance/tokens.json` after the event. The per-app CSS link is a
-  stable convenience link, never a watch path.
-- **Tokens.** `tokens.json` is the resolved v2 document: `version: 2` plus the
-  closed groups `surface`, `state`, `type`, `ink` and namespaced numeric
-  `layout.<app>`. Lengths are unitless numbers; paints are palette role
-  expressions only. `surface.panel.radius` and
-  `layout.<app>.<token>` are the app-facing reads. An optional manifest
-  `mode.dark`/`mode.light` override replaces a complete group as a whole and
-  is validated by the same parser.
-- **One apply per generation.** The composed sheet is applied VERBATIM. The
-  core coalesces identical CSS + token content, so the atomic repoint plus
-  convenience-link creation produces one provider swap; the 50 ms debounce
-  collapses the filesystem burst. Add-before-remove keeps a provider live on
-  every swap; the app stylesheet and GTK theme are never touched.
-- **Refresh.** `createAppearanceRefreshHandler(appearance, work?)` keeps the
-  existing `palette-refresh` transport but ALWAYS calls `appearance.apply()`
-  before app-owned derived work. It is idempotent by appearance hash (a
-  repeated hash does not rerun the work), does not advance the hash on
-  deferred/failed work, and emits exactly one JSON response.
-- **Failure.** Missing/malformed artifacts are a no-op with the previous
-  provider and token fallback; malformed content reports through `onError`.
-  Literal hex outside the palette block, `transition` and
-  `structure`/`variant` are rejected before GTK sees the sheet.
+- **Paths.** Watch ONLY `$XDG_STATE_HOME/dotfiles/current`
+  (`APPEARANCE_WATCH_PATH`, `APPEARANCE_WATCH_POINTER = "dotfiles/current"`).
+  Read `current/manifest.json`, `current/appearance/<configDir>.css` and
+  `current/appearance/tokens.json`. There is no
+  `$XDG_CONFIG_HOME/<configDir>/appearance.css` read path, no app-tag read and
+  no v1/v2 skin read path.
+- **Generation-bound apply.** `applyGeneration(genHash)` resolves
+  `generations/<genHash>/...` directly when present. A `current` fallback
+  verifies `manifest.generationHash` before AND after the artifact read. A
+  pointer that moved, a missing generation or a hash mismatch applies nothing
+  and returns `deferred`/`failed` with the requested hash. `apply()` resolves
+  the committed `current` generation; `appliedHash()` exposes the installed
+  one.
+- **Tokens.** `tokens.json` is the resolved v2 document wrapped by the v3
+  generation: `version: 2` plus the closed groups `surface`, `state`, `type`,
+  `ink` and namespaced numeric `layout.<app>`. Lengths are unitless numbers;
+  paints are palette role expressions only. `surface.panel.radius` and
+  `layout.<app>.<token>` are the app-facing reads.
+- **One apply per generation.** The composed sheet is applied VERBATIM and
+  coalesced by generation hash; the 50 ms debounce collapses the commit burst.
+  Add-before-remove keeps a provider live on every swap; the app stylesheet
+  and GTK theme are never touched.
+- **Refresh.** `createAppearanceRefreshHandler(appearance, work?)` implements
+  `["appearance-refresh", "<genHash>"]` and only answers the frozen v3 union
+  (`applied`/`deferred`/`failed`, each naming the requested hash). It is
+  idempotent by generation hash, does not advance on deferred/failed work, and
+  emits exactly one JSON response. The old `{"ok":true}` ack is invalid.
+- **Failure.** Missing `current`/generation artifacts are a no-op with the
+  previous provider and token fallback; malformed content reports through
+  `onError` and stays retryable. Literal hex outside the palette block,
+  `transition` and `structure`/`variant` are rejected before GTK sees the
+  sheet.
 - **Exports.** `createAppearance`, `appearance`, `createAppearanceValue`,
   `appearanceValue`, `parseAppearanceJson`/`parseAppearanceTokens`,
+  `parseGenerationManifest`, `generationAppearanceTarget`,
   `validateAppearanceCss`, `createReplacingAppearanceCssSink`,
-  `createAppearanceRefreshHandler`, the path/pointer constants and the
-  `Appearance*` types.
+  `createAppearanceRefreshHandler`, the state path/pointer constants and the
+  `Appearance*`/`Generation*` types.
 
 The v1 `theme`, `skin` and `skinValue` exports below remain for one release as
 deprecated aliases; new app work uses Appearance.
