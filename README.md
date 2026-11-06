@@ -165,7 +165,7 @@ One mechanism per app: one `Gio.FileMonitor`, one composed `Gtk.CssProvider`.
 import { theme } from "ags-platform"
 
 theme.apply()                          // install the palette now
-const palette = theme.palette()        // { version: "1", roles: { primary: "#…", … } }
+const palette = theme.palette()        // { version: "1", mode?: "dark"|"light", roles: { primary: "#…", … } }
 const unsubscribe = theme.subscribe((next) => {
   // `next` is already loaded AND applied; read it directly.
   render(next.roles.on_surface)
@@ -180,6 +180,14 @@ unsubscribe()                          // stops the monitor when the last listen
   additive producer roles, and fails closed with `PaletteParseError` (source +
   line) on malformed input. `subscribe()` is change-only: read `palette()` for
   the initial value.
+- theme-producer v0.6.0's mode metadata is accepted and exposed as
+  `palette.mode` (`"dark"` or `"light"`): `mode` is the producer field, and
+  the runtime-recognized aliases `scheme`, `appearance`, `variant`, `is_dark`
+  and `dark` are tolerated with the runtime's precedence (`mode` first; string
+  keys before boolean aliases). Metadata is never a palette role and is never
+  emitted as `@define-color`. Older artifacts with no mode leave
+  `palette.mode` undefined. Unknown top-level keys still fail, and role values
+  are still validated as palette hex.
 - `theme.subscribe(listener)` shares ONE monitor across listeners, reloads the
   palette, re-applies the CSS, then notifies. The last unsubscribe stops the
   monitor. A malformed refresh keeps the previous palette/provider installed
@@ -200,7 +208,8 @@ unsubscribe()                          // stops the monitor when the last listen
 - The exports are `PALETTE_V1_ROLES`, `PALETTE_VERSION`, `parsePaletteYaml`,
   `renderPaletteCss`, `paletteCssVariable`, `missingPaletteRoles`,
   `composeThemeCss`, `createTheme`, `createReplacingCssSink` and the
-  `Palette`/`Theme`/`ThemeOptions`/`CssSink`/`CssProvider*` types.
+  `Palette`/`PaletteMode`/`Theme`/`ThemeOptions`/`CssSink`/`CssProvider*`
+  types.
 - Phase B (kit + per-app role migration, including btop-theme-studio and icme)
   is a separate ticket; the legacy aliases are not removed here.
 

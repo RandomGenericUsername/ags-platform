@@ -9,6 +9,53 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-06
+
+REQ-018: accept theme-producer v0.6.0 palette mode metadata without degrading
+the Theme provider. Ticket:
+[`REQ-018`](./tickets/REQ-018-palette-mode-metadata/ticket.md).
+
+### Fixed
+
+- **`parsePaletteYaml` no longer mistakes `mode` for a role.** theme-producer
+  v0.6.0 emits a top-level `mode: "dark"` / `mode: "light"` scalar in every
+  generated `colors.yaml`; the parser previously threw
+  `PaletteParseError … role "mode" has invalid value "dark"`, so
+  `theme.apply()` degraded to legacy CSS and `theme.palette()` failed.
+- The runtime-recognized aliases are tolerated while staying out of the role
+  map: `scheme`, `appearance` and `variant` as strings, and `is_dark`/`dark`
+  as booleans. Mode resolution follows the runtime precedence
+  (`mode`, `scheme`, `appearance`, `variant`, then `is_dark`, `dark`).
+- Metadata is never projected as `@define-color`; theme provider composition
+  and priority are unchanged. Unknown top-level keys still fail, role values
+  are still validated as palette hex, and the legacy `colors:` list still
+  parses as a skipped block.
+
+### Added
+
+- `Palette.mode?: "dark" | "light"` exposes the resolved metadata mode when
+  the artifact carries one; older artifacts leave it undefined. The
+  `PaletteMode` type is exported from the package root.
+
+### Tests
+
+- `tests/palette.test.ts` parses the real-shaped mode-bearing fixture (roles +
+  legacy `colors:`), a light artifact, every alias and the runtime precedence,
+  an arbitrary alias string, invalid mode/boolean metadata, an unknown
+  top-level scalar, and unchanged role-hex rejection.
+- `tests/theme-provider.test.ts` composes a `mode`-bearing palette through
+  `theme.apply()` and asserts the metadata never becomes a role define, while
+  `palette()` exposes `mode` before and after a refresh.
+
+### Release
+
+- Annotated tag `v0.9.1` on the ticket branch's closeout commit.
+- `package.json` remains `private` at `0.0.0`; the tag is the release identity.
+- Gates: targeted parser/provider suites (19 pass), `make test` (113 pass),
+  `make exports` (2 pass), `make typecheck-tests` (0 errors) and the local
+  `make typecheck` (0 in-tree errors; 7 tolerated `/usr/share/ags/js` errors)
+  all green.
+
 ## [0.9.0] - 2026-11-06
 
 REQ-017: unified Appearance consumer for contracts `v0.7.0`. One provider,
