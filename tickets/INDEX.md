@@ -34,7 +34,7 @@
 ## Bugs
 
 - [BUG-001-theme-provider-accumulation/ticket.md](./BUG-001-theme-provider-accumulation/ticket.md) — Theme adapter adds a CSS provider per refresh instead of replacing one | `done` | severity: medium
-- [BUG-002-appearance-css-hex-validation/ticket.md](./BUG-002-appearance-css-hex-validation/ticket.md) — Appearance CSS validation mistakes the notifications window ID for a hex colour | `in-progress` | severity: high | worktree: .worktrees/BUG-002/ | branch: ticket/BUG-002-appearance-css-hex-validation
+- [BUG-002-appearance-css-hex-validation/ticket.md](./BUG-002-appearance-css-hex-validation/ticket.md) — Appearance CSS validation mistakes the notifications window ID for a hex colour | `done` | severity: high | tag: v1.0.1 | worktree: .worktrees/BUG-002/ | branch: ticket/BUG-002-appearance-css-hex-validation
 
 ## Ops tasks
 
