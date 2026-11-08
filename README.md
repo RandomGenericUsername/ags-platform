@@ -18,11 +18,14 @@ notifications. The platform depends on `contracts`; it never depends on an app.
 
 ## Releases
 
-Current release: **`v1.0.0`** — Generations v3 consumer (contracts `v0.8.0`):
-one immutable `state/generations/<genHash>/`, one watched `state/current` hop,
-one provider at USER priority, and generation-bound
-`appearance-refresh <genHash>` apply/ack. The platform reads only
-`$XDG_STATE_HOME/dotfiles/current/manifest.json`,
+Current release: **`v1.0.1`** — Generations v3 consumer (contracts `v0.8.0`)
+plus the appearance CSS validator patch: one immutable
+`state/generations/<genHash>/`, one watched `state/current` hop, one provider at
+USER priority, and generation-bound `appearance-refresh <genHash>` apply/ack.
+`validateAppearanceCss` rejects only 3/4/6/8-digit hex colour literals outside
+the `@define-color` block, so ID selectors such as
+`window#notifications-window` and `url(#fragment)` references pass. The platform
+reads only `$XDG_STATE_HOME/dotfiles/current/manifest.json`,
 `current/appearance/<configDir>.css` and `current/appearance/tokens.json`; it
 never reads the v2 config-link or skin paths. The v2 `palette-refresh` helper
 and the v1 `theme`/`skin` aliases remain exported as deprecated migration

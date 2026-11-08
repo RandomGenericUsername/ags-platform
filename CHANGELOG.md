@@ -9,6 +9,46 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-07
+
+Appearance CSS validation patch: the v3 live refresh no longer mistakes a CSS
+ID selector for a hex colour. Ticket:
+[`BUG-002`](./tickets/BUG-002-appearance-css-hex-validation/ticket.md).
+
+### Fixed
+
+- **`validateAppearanceCss` detects hex colour literals, not every `#`.**
+  The composed-sheet check used the token-value rule (`/#/`) after stripping
+  `@define-color` declarations, so the valid selector
+  `window#notifications-window` in the generated `ags-notifications.css` was
+  reported as `literal hex is not allowed` and the live
+  `appearance-refresh` failed. The CSS check now matches only 3/4/6/8-digit
+  CSS hex values with token boundaries, ignores `url(#fragment)` references and
+  masks selector preludes. The `@define-color <role> <value>;` exemption and the
+  transition, structure/variant and empty-sheet checks are unchanged.
+- Token values keep the strict any-`#` prohibition; `HEX_COLOR = /#/` is still
+  used for `parseAppearanceJson` paint/ink values. No app or runtime code
+  changed.
+
+### Tests
+
+- `tests/appearance.test.ts` accepts `window#notifications-window`, `.x#id`,
+  `.x#not-an-id` and `url(#gradient)`/`url(#abcdef)`; rejects `#fff`,
+  `#ffffff`, `#ffffffff`, `#1234` and uppercase `#ABC` outside
+  `@define-color`; confirms a leading palette block is still exempt; and keeps
+  rejecting `#not-an-id` in token values.
+- `tests/fixtures/ags-notifications.css` is the generated notifications sheet
+  copied without host paths (125 `@define-color` lines plus the window ID
+  selector) and validates in the regression test.
+
+### Release
+
+- Annotated tag `v1.0.1` on the ticket branch's closeout commit.
+- `package.json` remains `private` at `0.0.0`; the tag is the release identity.
+- Gates: `make gates` (`test` 131 pass, `exports` 2 pass, `typecheck-tests`
+  0 errors, local `typecheck` 0 in-tree errors with 7 tolerated
+  `/usr/share/ags/js` errors) is green.
+
 ## [1.0.0] - 2026-11-06
 
 Generations v3: state-only appearance consumption and generation-bound
