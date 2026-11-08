@@ -1,10 +1,11 @@
-.PHONY: help test exports typecheck typecheck-tests bundle
+.PHONY: help test exports typecheck typecheck-tests gates bundle
 
 help:
 	@echo "test              Pure-module unit tests (node --test, stock runner)"
 	@echo "exports           Package/export boundary gate (stock runner)"
 	@echo "typecheck-tests   Typecheck the pure test suite (stock runner)"
 	@echo "typecheck         Desktop-stack typecheck (self-hosted runner, AD-23)"
+	@echo "gates             All local gates: test + exports + typecheck-tests + typecheck"
 	@echo "bundle            AGS bundle smoke check (desktop stack)"
 
 # Pure tests: the ports only, no desktop stack. Runs on a stock CI runner.
@@ -62,6 +63,10 @@ typecheck:
 	fi; \
 	echo "    OK: 0 errors in the ags-platform tree"; \
 	rm -f "$$log"
+
+# Every executable gate, matching the CI job set plus the local desktop
+# typecheck; a gate that is not run here is a gate nobody runs.
+gates: test exports typecheck-tests typecheck
 
 bundle:
 	@echo "TODO: ags bundle smoke check (desktop stack)"
