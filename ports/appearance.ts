@@ -107,8 +107,17 @@ const COLOR_MIX_EXPRESSION =
 const BLUR_VALUE =
   /^(?:blur\(\d+(?:\.\d+)?px\)(?: saturate\(\d+(?:\.\d+)?\))?|none)$/;
 
-//: Palette owns colour atoms; a literal hex is never legal in an appearance.
+//: Token values reject ANY `#`; palette owns colour atoms.
 const HEX_COLOR = /#/;
+
+//: A CSS colour literal only: 3/4/6/8 hex digits with token boundaries. IDs
+//: (`window#notifications-window`) and url() fragments are not colours, and a
+//: 5/7-digit run is not a CSS hex colour either.
+const HEX_COLOR_LITERAL =
+  /(?<![\w-])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])/;
+
+//: url(#fragment) is an SVG reference, never a colour atom.
+const CSS_URL_REFERENCE = /url\(\s*(?:"[^"]*"|'[^']*'|[^)]*)\)/gi;
 
 //: Motion is outside the appearance plane and would race a live CSS swap.
 const TRANSITION = /transition/i;
@@ -760,6 +769,20 @@ function stripCssComments(css: string): string {
 }
 
 /**
+ * Blank every selector prelude (the text before `{`) before the colour scan.
+ * Selectors may legitimately contain hex-shaped IDs (`#abc`); only declaration
+ * values can carry a literal colour. Property declarations never end in `{`,
+ * so the prelude pattern cannot hide one.
+ */
+function maskCssSelectors(css: string): string {
+  return css.replace(
+    /(^|[{};])([^{};]*)\{/g,
+    (_match, boundary: string, prelude: string) =>
+      `${boundary}${" ".repeat(prelude.length)}{`,
+  );
+}
+
+/**
  * Validate the runtime-composed `<configDir>.css` before it reaches GTK.
  * The adapter applies the bytes VERBATIM; this check only protects the one
  * provider: no literal hex, no transition declarations, no structure/variant
@@ -772,12 +795,18 @@ export function validateAppearanceCss(css: string, source = "appearance.css"): v
   // The composed sheet deliberately starts with the runtime palette block:
   // `@define-color <role> <hex>;`. That hex is palette-owned and is the ONE
   // allowed colour atom; every other literal hex is rejected.
-  const body = stripCssComments(css).replace(
-    /@define-color\s+[A-Za-z0-9_-]+\s+[^;]+;/g,
-    "",
+  const body = maskCssSelectors(
+    stripCssComments(css)
+      .replace(/@define-color\s+[A-Za-z0-9_-]+\s+[^;]+;/g, "")
+      .replace(CSS_URL_REFERENCE, ""),
   );
-  if (HEX_COLOR.test(body)) {
-    fail(source, null, "literal hex is not allowed; palette roles own colours");
+  const hex = HEX_COLOR_LITERAL.exec(body);
+  if (hex !== null) {
+    fail(
+      source,
+      null,
+      `literal hex ${JSON.stringify(hex[0])} is not allowed; palette roles own colours`,
+    );
   }
   const transition = /(?:^|[;{\s])transition(?:-[a-z]+)?\s*:/i.exec(body);
   if (transition !== null) {

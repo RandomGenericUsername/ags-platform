@@ -175,6 +175,14 @@ test("v2 parsing rejects hex, transition, structure/variant, unknown roles and u
   assert.throws(
     () =>
       parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "panel", "bg", "#not-an-id"),
+      ),
+    /literal hex/,
+    "token values keep the any-# prohibition; the CSS literal rule is separate",
+  )
+  assert.throws(
+    () =>
+      parseAppearanceJson(
         appearanceJsonWithLeaf("surface", "panel", "bg", "alpha(@surface, 0.5) transition"),
       ),
     /transition/,
@@ -233,6 +241,71 @@ test("composed CSS validation rejects literal hex, transitions and structure pro
   assert.doesNotThrow(() =>
     validateAppearanceCss("/* #ff0000 is a note */ .x { padding: 4px; }"),
   )
+})
+
+test("composed CSS validation accepts ID selectors and url() fragments", () => {
+  assert.doesNotThrow(() =>
+    validateAppearanceCss(
+      "window#notifications-window { color: @on_surface; }",
+    ),
+  )
+  assert.doesNotThrow(() => validateAppearanceCss(".x#id { padding: 4px; }"))
+  assert.doesNotThrow(() =>
+    validateAppearanceCss(".x#not-an-id { padding: 4px; }"),
+  )
+  assert.doesNotThrow(() =>
+    validateAppearanceCss(".x { background-image: url(#gradient); }"),
+  )
+  assert.doesNotThrow(() =>
+    validateAppearanceCss(".x { background-image: url(#abcdef); }"),
+    "a hex-shaped url() fragment is a reference, not a colour atom",
+  )
+  assert.doesNotThrow(() =>
+    validateAppearanceCss(
+      [
+        "@define-color surface #121318;",
+        "@define-color on_surface #e3e1e9;",
+        "",
+        "window#notifications-window {",
+        "  color: @on_surface;",
+        "  background-image: url(#gradient);",
+        "}",
+      ].join("\n"),
+    ),
+  )
+})
+
+test("composed CSS validation rejects only 3/4/6/8-digit hex colour literals", () => {
+  for (const hex of ["#fff", "#ffffff", "#ffffffff", "#1234"]) {
+    assert.throws(
+      () => validateAppearanceCss(`.x { color: ${hex}; }`),
+      /literal hex/,
+      `${hex} outside @define-color is a literal colour`,
+    )
+  }
+  assert.throws(
+    () => validateAppearanceCss(".x { border-color: #ABC; }"),
+    /literal hex/,
+    "hex detection is case-insensitive",
+  )
+  assert.doesNotThrow(() =>
+    validateAppearanceCss(".x { color: #12345; }"),
+    "5- and 7-digit runs are not CSS hex colours",
+  )
+  assert.doesNotThrow(() =>
+    validateAppearanceCss(".x { color: #fffff; }"),
+    "a non-colour hash token is not a literal hex colour",
+  )
+})
+
+test("the generated ags-notifications sheet validates (ID selector regression)", () => {
+  const fixture = readFileSync(
+    resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/ags-notifications.css"),
+    "utf8",
+  )
+  assert.match(fixture, /window#notifications-window \{/)
+  assert.equal((fixture.match(/@define-color\s/g) ?? []).length, 125)
+  assert.doesNotThrow(() => validateAppearanceCss(fixture, "ags-notifications.css"))
 })
 
 test("the adapter owns one monitor on current, USER priority and module refs", () => {
