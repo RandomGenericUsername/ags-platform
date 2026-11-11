@@ -30,6 +30,7 @@
 - [REQ-017-appearance-adapter/ticket.md](./REQ-017-appearance-adapter/ticket.md) — Unified Appearance consumer: one provider, one monitor, one apply | `done` | tag: v0.9.0
 - [REQ-018-palette-mode-metadata/ticket.md](./REQ-018-palette-mode-metadata/ticket.md) — Palette parser accepts theme-producer mode metadata | `done` | tag: v0.9.1
 - [REQ-019-generations-v3/ticket.md](./REQ-019-generations-v3/ticket.md) — Generations v3 state-only appearance consumer + generation-bound refresh | `done` | tag: v1.0.0 | worktree: .worktrees/REQ-019/ | branch: ticket/REQ-019-generations-v3
+- [REQ-020-surface-window-role/ticket.md](./REQ-020-surface-window-role/ticket.md) — Appearance parser accepts the required contracts v0.12.0 `surface.window` role | `in-progress` | worktree: .worktrees/REQ-020/ | branch: ticket/REQ-020-surface-window-role
 
 ## Bugs
 
