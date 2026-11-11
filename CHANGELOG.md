@@ -9,6 +9,53 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-11
+
+Required `surface.window` outer/toplevel role for contracts `v0.12.0`. Ticket:
+[`REQ-020`](./tickets/REQ-020-surface-window-role/ticket.md).
+
+### Added
+
+- **`surface.window` in the embedded appearance schema.** The resolved token
+  document now requires the six surface roles `window`, `panel`, `card`, `cell`,
+  `control` and `pill`. `window` has exactly `bg` (paint), `border` (border
+  paint), `border-width`, `radius` and `padding` (non-negative numbers),
+  `shadow`, `blur` and `opacity`.
+- **`opacity` token kind.** `surface.window.opacity` is a unitless finite JSON
+  number in the inclusive `[0, 1]` range. Strings (including `"94%"`), null,
+  non-finite numbers, negatives and values above `1` fail. It is never derived
+  from an `alpha()` paint and is not a length.
+- Fixture and tests cover the valid eight-token window group, a missing group,
+  a missing token, an extra token, opacity bounds/type, the other seven token
+  kinds, a complete `mode.dark`/`mode.light` surface override, and a contracts
+  `v0.12.0` generation manifest plus six-role token document.
+
+### Changed
+
+- The token-model version stays **`2`** and the generation manifest stays
+  `version: 3`, exactly as contracts `v0.12.0` shipped. `APPEARANCE_VERSION`
+  remains `2`; the `= 3` proposal in `dotfiles-v3/docs/113` is superseded.
+- `surface.panel`, `surface.card`, `surface.control`, `surface.cell` and
+  `surface.pill` keep their existing kinds, required tokens and closed-object
+  rules. There is no `surface.window` ↔ `surface.panel` alias or fallback.
+- `value(path, fallback)`, the generation apply/ack API and the provider sink
+  are unchanged, so app code stays API-compatible.
+
+### Downstream audit
+
+- No runtime, assets, provisioning, composition, app or live-state code was
+  changed in this repo. Runtime (`dotfiles-runtime`) must still emit the window
+  group in every resolved token document; assets must still author it; and the
+  composition pin must move to `v1.1.0` before apps consume a window-bearing
+  generation. Apps that only call `value(...)` need no code change, but their
+  platform pins need a parity wave (re-pin + gates), not an API migration.
+
+### Release
+
+- Annotated tag `v1.1.0` on the ticket branch's closeout commit.
+- `package.json` remains `private` at `0.0.0`; the tag is the release identity.
+- Gates: `make gates`.
+
 ## [1.0.1] - 2026-11-07
 
 Appearance CSS validation patch: the v3 live refresh no longer mistakes a CSS

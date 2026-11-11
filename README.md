@@ -18,10 +18,15 @@ notifications. The platform depends on `contracts`; it never depends on an app.
 
 ## Releases
 
-Current release: **`v1.0.1`** — Generations v3 consumer (contracts `v0.8.0`)
-plus the appearance CSS validator patch: one immutable
-`state/generations/<genHash>/`, one watched `state/current` hop, one provider at
-USER priority, and generation-bound `appearance-refresh <genHash>` apply/ack.
+Current release: **`v1.1.0`** — Generations v3 consumer (contracts `v0.8.0`;
+window role from contracts `v0.12.0`) plus the appearance CSS validator patch:
+one immutable `state/generations/<genHash>/`, one watched `state/current` hop,
+one provider at USER priority, and generation-bound
+`appearance-refresh <genHash>` apply/ack. The parser requires the six
+`surface.window`/`panel`/`card`/`cell`/`control`/`pill` roles; `surface.window`
+has exactly `bg`, `border`, `border-width`, `radius`, `padding`, `shadow`,
+`blur` and a unitless `[0, 1]` `opacity`, and is never aliased from
+`surface.panel`. The token-model version stays `2`.
 `validateAppearanceCss` rejects only 3/4/6/8-digit hex colour literals outside
 the `@define-color` block, so ID selectors such as
 `window#notifications-window` and `url(#fragment)` references pass. The platform
@@ -144,9 +149,12 @@ app.start({
   one.
 - **Tokens.** `tokens.json` is the resolved v2 document wrapped by the v3
   generation: `version: 2` plus the closed groups `surface`, `state`, `type`,
-  `ink` and namespaced numeric `layout.<app>`. Lengths are unitless numbers;
-  paints are palette role expressions only. `surface.panel.radius` and
-  `layout.<app>.<token>` are the app-facing reads.
+  `ink` and namespaced numeric `layout.<app>`. `surface` requires the six
+  contracts `v0.12.0` roles `window`, `panel`, `card`, `cell`, `control` and
+  `pill`. Lengths are unitless numbers; paints are palette role expressions
+  only; only `surface.window.opacity` is a unitless `[0, 1]` number. Window is
+  its own role with no panel alias or fallback. `surface.window.radius`,
+  `surface.panel.radius` and `layout.<app>.<token>` are the app-facing reads.
 - **One apply per generation.** The composed sheet is applied VERBATIM and
   coalesced by generation hash; the 50 ms debounce collapses the commit burst.
   Add-before-remove keeps a provider live on every swap; the app stylesheet
