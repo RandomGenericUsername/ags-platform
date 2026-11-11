@@ -13,7 +13,8 @@
  *    fallback);
  * 3. parse/validate the resolved `tokens.json` (`version: 2` plus the five
  *    groups `surface`, `state`, `type`, `ink`, `layout`; the v3 generation
- *    wraps the unchanged v2 token vocabulary);
+ *    wraps the unchanged v2 token vocabulary, and contracts `v0.12.0` adds the
+ *    required six-role `surface.window` to that same version);
  * 4. validate the composed `<configDir>.css` (no literal hex, no transition,
  *    no structure/variant);
  * 5. install the composed sheet VERBATIM as ONE provider at USER priority
@@ -177,7 +178,11 @@ function validateRoleReferences(source: string, path: string, text: string): voi
 function validatePaint(source: string, path: string, value: unknown): string {
   const text = validateString(source, path, value);
   if (/blur\(/i.test(text)) {
-    fail(source, path, "blur( is only legal in surface.panel.blur");
+    fail(
+      source,
+      path,
+      "blur( is only legal in surface.panel.blur or surface.window.blur",
+    );
   }
   if (/calc\([^)]*%/.test(text)) {
     fail(source, path, "calc() with a percentage is not a legal paint");
@@ -300,11 +305,24 @@ type TokenKind =
   | "nonnegative"
   | "positive"
   | "font-weight"
-  | "letter-spacing";
+  | "letter-spacing"
+  | "opacity";
 
 type GroupSchema = Readonly<Record<string, Readonly<Record<string, TokenKind>>>>;
 
 const SURFACE_SCHEMA: GroupSchema = Object.freeze({
+  // contracts v0.12.0: the required outer/toplevel role. It is a distinct
+  // role with its own values; surface.panel is never an alias or fallback.
+  window: Object.freeze({
+    bg: "paint",
+    border: "border",
+    "border-width": "nonnegative",
+    radius: "nonnegative",
+    padding: "nonnegative",
+    shadow: "shadow",
+    blur: "blur",
+    opacity: "opacity",
+  }),
   panel: Object.freeze({
     bg: "paint",
     border: "border",
@@ -404,6 +422,10 @@ function validateToken(
       return validateNumber(source, path, value, { minimum: 1, maximum: 1000 });
     case "letter-spacing":
       return validateNumber(source, path, value, { minimum: -10, maximum: 10 });
+    case "opacity":
+      // contracts v0.12.0: surface.window.opacity is the only unitless
+      // [0, 1] number; it is never a length, percentage or alpha() paint.
+      return validateNumber(source, path, value, { minimum: 0, maximum: 1 });
   }
 }
 
@@ -611,10 +633,13 @@ function applyMode(
  *
  * Accepted root shape: `version: 2` plus the five complete groups
  * `surface`/`state`/`type`/`ink`/`layout`, and an optional `mode` object with
- * `dark`/`light` overrides. A mode override is a set of complete same-shape
- * groups; `selectedMode` applies the matching override on top of the base
- * groups (the runtime normally publishes an already-resolved `tokens.json`
- * with no `mode` field).
+ * `dark`/`light` overrides. `surface` requires the six contracts `v0.12.0`
+ * roles `window`/`panel`/`card`/`cell`/`control`/`pill`; `window.opacity` is
+ * the only unitless `[0, 1]` number and `window` is never aliased from
+ * `panel`. A mode override is a set of complete same-shape groups;
+ * `selectedMode` applies the matching override on top of the base groups (the
+ * runtime normally publishes an already-resolved `tokens.json` with no `mode`
+ * field).
  *
  * Every object level is closed: unknown groups/tokens, structure/variant
  * names, literal hex, `transition`, unit-bearing numeric strings and wrong

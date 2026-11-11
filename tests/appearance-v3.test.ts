@@ -6,6 +6,7 @@ import {
   createReplacingAppearanceCssSink,
   generationAppearanceTarget,
   isGenerationHash,
+  parseAppearanceJson,
   parseGenerationManifest,
   resolveAppearancePaths,
   type AppearanceCssHost,
@@ -196,6 +197,26 @@ test("the v3 manifest verifies version, identity, tokensPath and exact targets",
     /skin\.mode/,
   )
   assert.throws(() => parseGenerationManifest("{"), AppearanceManifestError)
+})
+
+test("a contracts v0.12.0 generation manifest and six-role token document parse", () => {
+  const manifest = parseGenerationManifest(
+    generationManifestJson(GENERATION_A, { mode: "light" }),
+  )
+  assert.equal(manifest.version, 3, "the generation manifest version stays 3")
+  assert.equal(manifest.mode, "light")
+
+  const tokens = parseAppearanceJson(GLASS_APPEARANCE_JSON, "tokens.json", "light")
+  assert.equal(tokens.version, 2, "the token model stays version 2")
+  assert.deepEqual(Object.keys(tokens.values).filter((key) => key.startsWith("surface.")).reduce<string[]>(
+    (roles, key) => {
+      const role = key.split(".")[1]
+      if (!roles.includes(role)) roles.push(role)
+      return roles
+    },
+    [],
+  ).sort(), ["card", "cell", "control", "panel", "pill", "window"])
+  assert.equal(tokens.values["surface.window.opacity"], 0.94)
 })
 
 test("consumer paths are state-only and watch only current", () => {

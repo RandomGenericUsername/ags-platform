@@ -74,6 +74,14 @@ test("v2 token documents parse with the five groups and namespaced layout", () =
 
   const tokens = parseAppearanceJson(GLASS_APPEARANCE_JSON)
   assert.equal(tokens.version, 2)
+  assert.equal(tokens.values["surface.window.bg"], "alpha(@surface, 0.94)")
+  assert.equal(tokens.values["surface.window.border"], "@primary")
+  assert.equal(tokens.values["surface.window.border-width"], 1.5)
+  assert.equal(tokens.values["surface.window.radius"], 12)
+  assert.equal(tokens.values["surface.window.padding"], 11)
+  assert.equal(tokens.values["surface.window.shadow"], "none")
+  assert.equal(tokens.values["surface.window.blur"], "none")
+  assert.equal(tokens.values["surface.window.opacity"], 0.94)
   assert.equal(tokens.values["surface.panel.radius"], 18)
   assert.equal(tokens.values["surface.panel.border-width"], 1.5)
   assert.equal(tokens.values["state.selected.fill"], "@primary_container")
@@ -85,6 +93,172 @@ test("v2 token documents parse with the five groups and namespaced layout", () =
 
   // The alias is the same parser, not a second vocabulary.
   assert.deepEqual(parseAppearanceTokens(GLASS_APPEARANCE_JSON), tokens)
+})
+
+test("surface.window is required with exactly the eight v0.12.0 tokens", () => {
+  const tokens = parseAppearanceJson(GLASS_APPEARANCE_JSON)
+  // Surface.window is a distinct role: it is not the panel value copied over.
+  assert.notEqual(
+    tokens.values["surface.window.radius"],
+    tokens.values["surface.panel.radius"],
+  )
+
+  const withoutWindow = JSON.parse(GLASS_APPEARANCE_JSON) as {
+    surface: Record<string, unknown>
+  }
+  delete withoutWindow.surface.window
+  assert.throws(
+    () => parseAppearanceJson(JSON.stringify(withoutWindow)),
+    /required by the v2 vocabulary/,
+    "the window group is required; panel never stands in for it",
+  )
+
+  const missingOpacity = JSON.parse(GLASS_APPEARANCE_JSON) as {
+    surface: { window: Record<string, unknown> }
+  }
+  delete missingOpacity.surface.window.opacity
+  assert.throws(
+    () => parseAppearanceJson(JSON.stringify(missingOpacity)),
+    /required by the v2 vocabulary/,
+  )
+
+  assert.throws(
+    () => parseAppearanceJson(appearanceJsonWithLeaf("surface", "window", "glow", 1)),
+    /unknown appearance token/,
+    "the window role is a closed object",
+  )
+
+  // The other five surface roles still parse unchanged and are not aliased.
+  const withoutPanel = JSON.parse(GLASS_APPEARANCE_JSON) as {
+    surface: Record<string, unknown>
+  }
+  delete withoutPanel.surface.panel
+  assert.throws(
+    () => parseAppearanceJson(JSON.stringify(withoutPanel)),
+    /required by the v2 vocabulary/,
+    "window never aliases the panel role either",
+  )
+})
+
+test("surface.window.opacity is a unitless number in [0, 1]", () => {
+  for (const opacity of [0, 0.5, 1]) {
+    assert.equal(
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "opacity", opacity),
+      ).values["surface.window.opacity"],
+      opacity,
+    )
+  }
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "opacity", "0.94"),
+      ),
+    /finite JSON numbers/,
+    "a unit-bearing/string opacity is not a number",
+  )
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "opacity", "94%"),
+      ),
+    /finite JSON numbers/,
+  )
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "opacity", -0.01),
+      ),
+    />= 0/,
+  )
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "opacity", 1.01),
+      ),
+    /<= 1/,
+  )
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "opacity", null),
+      ),
+    /finite JSON numbers/,
+  )
+})
+
+test("the other window tokens keep the existing token kinds and rules", () => {
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "bg", "#ff0000"),
+      ),
+    /literal hex/,
+  )
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "border", "red"),
+      ),
+    /unknown palette role|invalid role value/,
+  )
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "radius", "12px"),
+      ),
+    /finite JSON numbers/,
+  )
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "blur", "blur(4)"),
+      ),
+    /invalid blur/,
+  )
+  assert.throws(
+    () =>
+      parseAppearanceJson(
+        appearanceJsonWithLeaf("surface", "window", "shadow", "#shadow"),
+      ),
+    /literal hex/,
+  )
+  assert.doesNotThrow(() =>
+    parseAppearanceJson(
+      appearanceJsonWithLeaf("surface", "window", "blur", "blur(6px) saturate(1.1)"),
+    ),
+  )
+})
+
+test("a complete mode.dark/light surface override validates the window role", () => {
+  const base = JSON.parse(GLASS_APPEARANCE_JSON) as {
+    surface: Record<string, Record<string, unknown>>
+  }
+  const lightSurface = {
+    ...base.surface,
+    window: { ...base.surface.window, opacity: 0.7 },
+  }
+  const document = JSON.stringify({
+    ...base,
+    mode: { light: { surface: lightSurface } },
+  })
+
+  const light = parseAppearanceJson(document, "tokens.json", "light")
+  assert.equal(light.values["surface.window.opacity"], 0.7)
+  assert.equal(light.mode.light?.["surface.window.opacity"], 0.7)
+
+  const broken = JSON.stringify({
+    ...base,
+    mode: {
+      light: {
+        surface: {
+          ...base.surface,
+          window: { ...base.surface.window, opacity: 2 },
+        },
+      },
+    },
+  })
+  assert.throws(() => parseAppearanceJson(broken, "tokens.json", "light"), /<= 1/)
 })
 
 test("mode overrides replace complete groups; omitted groups inherit", () => {

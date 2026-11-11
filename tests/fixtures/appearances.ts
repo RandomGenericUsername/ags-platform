@@ -1,16 +1,28 @@
 /**
  * Hard-coded resolved v2 appearance token documents for the stock test runner.
  *
- * Source: contracts `v0.7.0`
+ * Source: contracts `v0.12.0`
  * `tests/fixtures/appearance-contract/appearance-json/glass.valid.json`, plus
- * additional `layout.<app>` namespaces the platform must read per configDir.
- * No cross-repo import: the stock runner has no access to the contracts
- * checkout, so the document is copied and reviewed here.
+ * the additional `layout.<app>` namespaces the platform must read per
+ * configDir. contracts `v0.12.0` keeps the token-model version at `2` and adds
+ * the required `surface.window` role with exactly eight tokens. No cross-repo
+ * import: the stock runner has no access to the contracts checkout, so the
+ * document is copied and reviewed here.
  */
 
 export const GLASS_APPEARANCE: Record<string, unknown> = {
   version: 2,
   surface: {
+    window: {
+      bg: "alpha(@surface, 0.94)",
+      border: "@primary",
+      "border-width": 1.5,
+      radius: 12,
+      padding: 11,
+      shadow: "none",
+      blur: "none",
+      opacity: 0.94,
+    },
     panel: {
       bg: "linear-gradient(180deg, alpha(@surface, 0.72), alpha(@surface_container, 0.82))",
       border: "color-mix(in srgb, @outline 60%, transparent)",
