@@ -1,6 +1,7 @@
 {
   "app-icons": {
     "color_mappings": {},
+    "surface": "dark-glass",
     "variants": [
       {
         "name": "generic",
@@ -73,9 +74,10 @@
       "widget": "battery"
     },
     "color_mappings": {
-      "COLOR_ACCENT": "color13",
-      "COLOR_FOREGROUND": "color15"
+      "COLOR_ACCENT": "primary",
+      "COLOR_FOREGROUND": "on_backdrop"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "battery-0",
@@ -129,7 +131,7 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "color15"
+          "COLOR_FOREGROUND": "on_backdrop"
         },
         "name": "plugged",
         "output": "plugged.svg",
@@ -137,42 +139,47 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-battery-0",
         "output": "system-battery-0.svg",
+        "surface": "dark-glass",
         "template": "status-bar/battery/battery-0/default/icon.svg"
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-battery-25",
         "output": "system-battery-25.svg",
+        "surface": "dark-glass",
         "template": "status-bar/battery/battery-25/default/icon.svg"
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-battery-50",
         "output": "system-battery-50.svg",
+        "surface": "dark-glass",
         "template": "status-bar/battery/battery-50/default/icon.svg"
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-battery-75",
         "output": "system-battery-75.svg",
+        "surface": "dark-glass",
         "template": "status-bar/battery/battery-75/default/icon.svg"
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-battery-100",
         "output": "system-battery-100.svg",
+        "surface": "dark-glass",
         "template": "status-bar/battery/battery-100/default/icon.svg"
       }
     ]
@@ -187,8 +194,9 @@
       "widget": "bluetooth"
     },
     "color_mappings": {
-      "COLOR_FOREGROUND": "color15"
+      "COLOR_FOREGROUND": "on_backdrop"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "bluetooth-on",
@@ -204,8 +212,9 @@
   },
   "brightness": {
     "color_mappings": {
-      "COLOR_FOREGROUND": "foreground"
+      "COLOR_FOREGROUND": "on_backdrop"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "default",
@@ -216,9 +225,10 @@
   },
   "btop": {
     "color_mappings": {
-      "COLOR_FOREGROUND": "color15",
-      "COLOR_JOIN": "color15"
+      "COLOR_FOREGROUND": "on_backdrop",
+      "COLOR_JOIN": "on_backdrop"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "btop",
@@ -229,9 +239,10 @@
   },
   "capture-tool": {
     "color_mappings": {
-      "COLOR_ACCENT": "color13",
-      "COLOR_FOREGROUND": "foreground"
+      "COLOR_ACCENT": "primary",
+      "COLOR_FOREGROUND": "on_surface"
     },
+    "surface": "dark-glass",
     "variants": [
       {
         "name": "camera",
@@ -305,7 +316,7 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "color6"
+          "COLOR_FOREGROUND": "primary"
         },
         "name": "camera-accent",
         "output": "capture-tool-camera-accent.svg",
@@ -313,7 +324,7 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "color6"
+          "COLOR_FOREGROUND": "primary"
         },
         "name": "video-accent",
         "output": "capture-tool-video-accent.svg",
@@ -321,7 +332,7 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "color3"
+          "COLOR_FOREGROUND": "error"
         },
         "name": "warning-caution",
         "output": "capture-tool-warning-caution.svg",
@@ -330,7 +341,10 @@
     ]
   },
   "email-client": {
-    "color_mappings": {},
+    "color_mappings": {
+      "COLOR_FOREGROUND": "on_backdrop"
+    },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "email-client",
@@ -339,10 +353,53 @@
       }
     ]
   },
+  "media-controls": {
+    "color_mappings": {
+      "COLOR_FOREGROUND": "on_surface"
+    },
+    "surface": "dark-glass",
+    "variants": [
+      {
+        "name": "shuffle",
+        "output": "media-controls-shuffle.svg",
+        "template": "media-controls/shuffle/default/icon.svg"
+      },
+      {
+        "color_mappings": {
+          "COLOR_FOREGROUND": "primary"
+        },
+        "name": "shuffle-active",
+        "output": "media-controls-shuffle-active.svg",
+        "template": "media-controls/shuffle-active/default/icon.svg"
+      },
+      {
+        "color_mappings": {
+          "COLOR_FOREGROUND": "primary"
+        },
+        "name": "repeat",
+        "output": "media-controls-repeat.svg",
+        "template": "media-controls/repeat/default/icon.svg"
+      },
+      {
+        "color_mappings": {
+          "COLOR_FOREGROUND": "primary"
+        },
+        "name": "repeat-once",
+        "output": "media-controls-repeat-once.svg",
+        "template": "media-controls/repeat-once/default/icon.svg"
+      },
+      {
+        "name": "repeat-off",
+        "output": "media-controls-repeat-off.svg",
+        "template": "media-controls/repeat-off/default/icon.svg"
+      }
+    ]
+  },
   "media-transport": {
     "color_mappings": {
-      "COLOR_FOREGROUND": "foreground"
+      "COLOR_FOREGROUND": "on_surface"
     },
+    "surface": "dark-glass",
     "variants": [
       {
         "name": "play",
@@ -368,9 +425,10 @@
   },
   "media-transport-panel": {
     "color_mappings": {
-      "COLOR_BACKGROUND": "color6",
-      "COLOR_FOREGROUND": "background"
+      "COLOR_BACKGROUND": "primary",
+      "COLOR_FOREGROUND": "on_primary"
     },
+    "surface": "dark-glass",
     "variants": [
       {
         "name": "play",
@@ -394,8 +452,9 @@
       "widget": "microphone"
     },
     "color_mappings": {
-      "COLOR_FOREGROUND": "foreground"
+      "COLOR_FOREGROUND": "on_backdrop"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "mic-on",
@@ -409,18 +468,20 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-mic-on",
         "output": "microphone-system-mic-on.svg",
+        "surface": "dark-glass",
         "template": "microphone/default/mic-on.svg"
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-mic-off",
         "output": "microphone-system-mic-off.svg",
+        "surface": "dark-glass",
         "template": "microphone/default/mic-off.svg"
       }
     ]
@@ -442,10 +503,11 @@
       "widget": "network"
     },
     "color_mappings": {
-      "COLOR_CROSS": "color13",
-      "COLOR_FOREGROUND": "color15",
-      "COLOR_WARNING": "color13"
+      "COLOR_CROSS": "error",
+      "COLOR_FOREGROUND": "on_backdrop",
+      "COLOR_WARNING": "tertiary"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "wifi-full-default",
@@ -573,11 +635,12 @@
       "widget": "power-menu"
     },
     "color_mappings": {
-      "COLOR_ACCENT": "color13",
-      "COLOR_BACKGROUND": "background",
-      "COLOR_FOREGROUND": "color15",
-      "COLOR_SECONDARY": "color1"
+      "COLOR_ACCENT": "primary",
+      "COLOR_BACKGROUND": "primary_container",
+      "COLOR_FOREGROUND": "on_backdrop",
+      "COLOR_SECONDARY": "secondary"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "power-menu-default",
@@ -590,8 +653,12 @@
         "template": "status-bar/power-menu/modern/gradient.svg"
       },
       {
+        "color_mappings": {
+          "COLOR_FOREGROUND": "on_primary_container"
+        },
         "name": "power-menu-modern-with-background",
         "output": "power-menu-modern-with-background.svg",
+        "surface": "solid",
         "template": "status-bar/power-menu/modern/with-background.svg"
       }
     ]
@@ -607,8 +674,9 @@
       "widget": "power-mode"
     },
     "color_mappings": {
-      "COLOR_FOREGROUND": "foreground"
+      "COLOR_FOREGROUND": "on_surface"
     },
+    "surface": "dark-glass",
     "variants": [
       {
         "name": "powersave",
@@ -637,8 +705,9 @@
       "widget": "settings"
     },
     "color_mappings": {
-      "COLOR_FOREGROUND": "foreground"
+      "COLOR_FOREGROUND": "on_backdrop"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "default",
@@ -649,12 +718,21 @@
   },
   "settings-panel": {
     "color_mappings": {
-      "COLOR_FOREGROUND": "foreground"
+      "COLOR_FOREGROUND": "on_surface"
     },
+    "surface": "dark-glass",
     "variants": [
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "color13"
+          "COLOR_FOREGROUND": "on_surface"
+        },
+        "name": "settings",
+        "output": "settings-panel-settings.svg",
+        "template": "settings-panel/settings/default/icon.svg"
+      },
+      {
+        "color_mappings": {
+          "COLOR_FOREGROUND": "primary"
         },
         "name": "wifi",
         "output": "settings-panel-wifi.svg",
@@ -662,7 +740,7 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "wifi-off",
         "output": "settings-panel-wifi-off.svg",
@@ -670,7 +748,7 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "color13"
+          "COLOR_FOREGROUND": "primary"
         },
         "name": "bluetooth",
         "output": "settings-panel-bluetooth.svg",
@@ -678,7 +756,7 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "bluetooth-off",
         "output": "settings-panel-bluetooth-off.svg",
@@ -711,8 +789,8 @@
       },
       {
         "color_mappings": {
-          "COLOR_BACKGROUND": "color12",
-          "COLOR_FOREGROUND": "color0"
+          "COLOR_BACKGROUND": "primary_container",
+          "COLOR_FOREGROUND": "on_primary_container"
         },
         "name": "bluetooth-signal-full",
         "output": "settings-panel-bluetooth-signal-full.svg",
@@ -720,8 +798,8 @@
       },
       {
         "color_mappings": {
-          "COLOR_BACKGROUND": "color13",
-          "COLOR_FOREGROUND": "color0"
+          "COLOR_BACKGROUND": "surface_container_high",
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "bluetooth-signal-good",
         "output": "settings-panel-bluetooth-signal-good.svg",
@@ -729,8 +807,8 @@
       },
       {
         "color_mappings": {
-          "COLOR_BACKGROUND": "color13",
-          "COLOR_FOREGROUND": "color0"
+          "COLOR_BACKGROUND": "surface_container_high",
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "bluetooth-signal-medium",
         "output": "settings-panel-bluetooth-signal-medium.svg",
@@ -738,8 +816,8 @@
       },
       {
         "color_mappings": {
-          "COLOR_BACKGROUND": "color13",
-          "COLOR_FOREGROUND": "color0"
+          "COLOR_BACKGROUND": "surface_container_high",
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "bluetooth-signal-low",
         "output": "settings-panel-bluetooth-signal-low.svg",
@@ -747,8 +825,8 @@
       },
       {
         "color_mappings": {
-          "COLOR_BACKGROUND": "color12",
-          "COLOR_FOREGROUND": "color0"
+          "COLOR_BACKGROUND": "primary_container",
+          "COLOR_FOREGROUND": "on_primary_container"
         },
         "name": "wifi-signal-full",
         "output": "settings-panel-wifi-signal-full.svg",
@@ -756,8 +834,8 @@
       },
       {
         "color_mappings": {
-          "COLOR_BACKGROUND": "color13",
-          "COLOR_FOREGROUND": "color0"
+          "COLOR_BACKGROUND": "surface_container_high",
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "wifi-signal-good",
         "output": "settings-panel-wifi-signal-good.svg",
@@ -765,8 +843,8 @@
       },
       {
         "color_mappings": {
-          "COLOR_BACKGROUND": "color13",
-          "COLOR_FOREGROUND": "color0"
+          "COLOR_BACKGROUND": "surface_container_high",
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "wifi-signal-medium",
         "output": "settings-panel-wifi-signal-medium.svg",
@@ -774,8 +852,8 @@
       },
       {
         "color_mappings": {
-          "COLOR_BACKGROUND": "color13",
-          "COLOR_FOREGROUND": "color0"
+          "COLOR_BACKGROUND": "surface_container_high",
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "wifi-signal-low",
         "output": "settings-panel-wifi-signal-low.svg",
@@ -783,7 +861,7 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "color15"
+          "COLOR_FOREGROUND": "tertiary"
         },
         "name": "info-caution",
         "output": "settings-panel-info-caution.svg",
@@ -803,8 +881,9 @@
   },
   "thunderbird": {
     "color_mappings": {
-      "COLOR_FOREGROUND": "color15"
+      "COLOR_FOREGROUND": "on_backdrop"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "thunderbird",
@@ -815,8 +894,9 @@
   },
   "tray": {
     "color_mappings": {
-      "COLOR_FOREGROUND": "color15"
+      "COLOR_FOREGROUND": "on_backdrop"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "tidal",
@@ -827,13 +907,14 @@
   },
   "ui": {
     "color_mappings": {
-      "COLOR_ACCENT": "color12",
-      "COLOR_FOREGROUND": "color15"
+      "COLOR_ACCENT": "primary",
+      "COLOR_FOREGROUND": "on_surface"
     },
+    "surface": "solid",
     "variants": [
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "color15"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "search",
         "output": "ui-search.svg",
@@ -884,8 +965,9 @@
       "widget": "volume"
     },
     "color_mappings": {
-      "COLOR_FOREGROUND": "foreground"
+      "COLOR_FOREGROUND": "on_backdrop"
     },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "muted",
@@ -914,50 +996,56 @@
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-muted",
         "output": "volume-system-muted.svg",
+        "surface": "dark-glass",
         "template": "volume/muted/default/icon.svg"
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-lowest",
         "output": "volume-system-lowest.svg",
+        "surface": "dark-glass",
         "template": "volume/lowest/default/icon.svg"
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-low",
         "output": "volume-system-low.svg",
+        "surface": "dark-glass",
         "template": "volume/low/default/icon.svg"
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-medium",
         "output": "volume-system-medium.svg",
+        "surface": "dark-glass",
         "template": "volume/medium/default/icon.svg"
       },
       {
         "color_mappings": {
-          "COLOR_FOREGROUND": "foreground"
+          "COLOR_FOREGROUND": "on_surface"
         },
         "name": "system-max",
         "output": "volume-system-max.svg",
+        "surface": "dark-glass",
         "template": "volume/max/default/icon.svg"
       }
     ]
   },
   "wallpaper-progress": {
     "color_mappings": {
-      "COLOR_FOREGROUND": "foreground"
+      "COLOR_FOREGROUND": "on_surface"
     },
+    "surface": "dark-glass",
     "variants": [
       {
         "name": "picture",
@@ -972,7 +1060,10 @@
     ]
   },
   "wallpaper-selector": {
-    "color_mappings": {},
+    "color_mappings": {
+      "COLOR_FOREGROUND": "on_backdrop"
+    },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "wallpaper-selector",
@@ -982,7 +1073,10 @@
     ]
   },
   "wlogout": {
-    "color_mappings": {},
+    "color_mappings": {
+      "COLOR_FOREGROUND": "on_backdrop"
+    },
+    "surface": "wallpaper",
     "variants": [
       {
         "name": "hibernate",

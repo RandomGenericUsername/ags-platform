@@ -52,3 +52,4 @@
 ## Done (links only, newest last)
 
 (none)
+- [REQ-021-sound-icons/ticket.md](./REQ-021-sound-icons/ticket.md) — Regenerate icons.json for media-controls and settings gear | `done` | tag: v1.2.0 | worktree: .worktrees/REQ-021/ | branch: ticket/REQ-021-sound-icons

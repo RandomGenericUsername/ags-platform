@@ -9,6 +9,20 @@ and `v0.2.0`); consumers pin the tag, not the manifest field.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-12
+
+Icon registry manifest for the sound-panel round two. Regenerated from the
+pinned assets corpus (v0.21.0).
+
+### Added
+
+- `media-controls` group: shuffle, shuffle-active, repeat, repeat-once and
+  repeat-off variants on the dark-glass surface (inactive `on_surface`, active
+  `primary`, active/off shape semantics).
+- `settings-panel.settings`: the Output gear on `on_surface`.
+- Updated semantic role mappings from the current assets group map.
+
+
 ## [1.1.0] - 2026-11-11
 
 Required `surface.window` outer/toplevel role for contracts `v0.12.0`. Ticket:
