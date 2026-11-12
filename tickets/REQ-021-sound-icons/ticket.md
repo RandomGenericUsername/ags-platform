@@ -25,3 +25,8 @@ single producer.
       `settings-panel.settings` variant.
 - [x] Platform gates (test/exports/typecheck) pass.
 - [x] Tag `v1.2.0`.
+
+## Live
+
+Platform `v1.2.0` is installed; the bar's `icons.json` is byte-identical, and
+the sound panel resolves the new groups. Bootstrap verify `ok=337 failed=0`.
