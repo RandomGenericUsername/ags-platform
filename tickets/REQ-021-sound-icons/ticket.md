@@ -30,3 +30,9 @@ single producer.
 
 Platform `v1.2.0` is installed; the bar's `icons.json` is byte-identical, and
 the sound panel resolves the new groups. Bootstrap verify `ok=337 failed=0`.
+
+## Final
+
+Platform v1.2.0 canonicalized to `main`; the final live install and bar
+`icons.json` byte-match; the assets v0.21.1 shuffle opacity is an asset
+template change, not a registry mapping change.
